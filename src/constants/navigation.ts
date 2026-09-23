@@ -3,6 +3,7 @@ export const navigationItems = [
   { label: "Tentang Kami", href: "/#about" },
   { label: "Layanan", href: "/#services" },
   { label: "Portfolio", href: "/#portfolio" },
+  { label: "Simulasi Biaya", href: "/simulasi-biaya" },
   { label: "Kemitraan", href: "/#partnership" },
   { label: "Keunggulan", href: "/#why-us" },
   { label: "FAQ", href: "/#faq" },

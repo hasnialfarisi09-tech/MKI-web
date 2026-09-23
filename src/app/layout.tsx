@@ -2,12 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
 import type { ReactNode } from "react";
 import Script from "next/script";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
-import { ScrollProgress } from "@/components/layout/ScrollProgress";
-import { SmoothScroll } from "@/components/layout/SmoothScroll";
-import { ScrollToTop } from "@/components/layout/ScrollToTop";
-import { FloatingCta } from "@/components/layout/FloatingCta";
+import { SiteShell } from "@/components/layout/SiteShell";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { company } from "@/constants/company";
 import { heroContent } from "@/constants/content";
@@ -244,13 +239,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <Script src="/theme.js" strategy="beforeInteractive" />
         <ThemeProvider>
           <div className="grain-overlay" aria-hidden />
-          <ScrollProgress />
-          <SmoothScroll />
-          <Navbar />
-          {children}
-          <Footer />
-          <ScrollToTop />
-          <FloatingCta />
+          <SiteShell>{children}</SiteShell>
         </ThemeProvider>
       </body>
     </html>
