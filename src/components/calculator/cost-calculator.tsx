@@ -117,7 +117,7 @@ const CATEGORY_TABS = [
   },
   {
     id: "wardrobe" as const,
-    label: "Lemari & Partisi (M2)",
+    label: "Lemari & Partisi",
     icon: Layers,
   },
   {
@@ -1321,6 +1321,7 @@ function ItemCard({
 
   const selectedOption =
     item.options.find((opt) => opt.id === state?.optionId) ?? item.options[0];
+  const activeUnit = selectedOption?.unit ?? item.defaultUnit;
   const unitPrice = selectedOption
     ? region === "DK"
       ? selectedOption.priceDK
@@ -1390,9 +1391,9 @@ function ItemCard({
                   ? "Rumus Khusus: (P : 0,6) x Tarif"
                   : item.id === "cab_atas_full_plafond"
                     ? "Rumus Khusus: (P x 2) x Tarif"
-                    : item.defaultUnit === "M1"
+                    : activeUnit === "M1"
                       ? "Meter Lari (M1)"
-                      : item.defaultUnit === "M2"
+                      : activeUnit === "M2"
                         ? "Meter Persegi (M2)"
                         : "Per Unit"}
               </span>
@@ -1563,7 +1564,7 @@ function ItemCard({
 
             {/* Dimension Inputs */}
             <div className="sm:col-span-5">
-              {item.defaultUnit === "M1" && (
+              {activeUnit === "M1" && (
                 <div>
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
                     <span>{item.id === "meja_island" ? "Panjang Meja:" : "Panjang Bentang:"}</span>
@@ -1628,7 +1629,7 @@ function ItemCard({
                 </div>
               )}
 
-              {item.defaultUnit === "M2" && (
+              {activeUnit === "M2" && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
                     <span>Dimensi Luas (M2):</span>
@@ -1684,7 +1685,7 @@ function ItemCard({
                 </div>
               )}
 
-              {item.defaultUnit === "UNIT" && (
+              {activeUnit === "UNIT" && (
                 <div>
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
                     <span>Jumlah / Qty:</span>
