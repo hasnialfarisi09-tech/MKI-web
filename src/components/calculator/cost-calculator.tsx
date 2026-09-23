@@ -323,13 +323,31 @@ export function CostCalculator() {
 
   // Set option for an item
   const setOption = (itemId: string, optionId: string) => {
-    setItemsState((prev) => ({
-      ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        optionId,
-      },
-    }));
+    setItemsState((prev) => {
+      const current = prev[itemId];
+      const targetConfig = ALL_ITEMS.find((i) => i.id === itemId);
+      const newOpt = targetConfig?.options.find((o) => o.id === optionId);
+
+      const newLength =
+        !current?.length || current.length === 0
+          ? (targetConfig?.defaultLength ?? 1.5)
+          : current?.length;
+
+      const newHeight =
+        newOpt?.unit === "M2" && (!current?.height || current.height === 0)
+          ? (targetConfig?.defaultHeight ?? 2.0)
+          : current?.height ?? "";
+
+      return {
+        ...prev,
+        [itemId]: {
+          ...current,
+          optionId,
+          length: newLength,
+          height: newHeight,
+        },
+      };
+    });
   };
 
   // Update dimension with +/- buttons
@@ -1394,7 +1412,7 @@ function ItemCard({
                     : activeUnit === "M1"
                       ? "Meter Lari (M1)"
                       : activeUnit === "M2"
-                        ? "Meter Persegi (M2)"
+                        ? "Meter Persegi (M2 / P x T)"
                         : "Per Unit"}
               </span>
             </div>
@@ -1465,7 +1483,7 @@ function ItemCard({
                           <span className="text-muted-foreground font-normal">— {selectedOption.model}</span>
                         </span>
                         <span className="text-[11px] sm:text-xs font-bold text-primary shrink-0 mt-0.5 sm:mt-0">
-                          ({formatRupiah(region === "DK" ? selectedOption.priceDK : selectedOption.priceLK)} / {selectedOption.unit})
+                          ({formatRupiah(region === "DK" ? selectedOption.priceDK : selectedOption.priceLK)} / {selectedOption.unit === "M2" ? "M2 (P x T)" : selectedOption.unit})
                         </span>
                       </div>
                     ) : (
@@ -1541,7 +1559,7 @@ function ItemCard({
                                   <div className="text-[11px] sm:text-xs font-bold text-primary mt-0.5">
                                     {formatRupiah(price)}{" "}
                                     <span className="font-normal text-muted-foreground">
-                                      / {opt.unit}
+                                      / {opt.unit === "M2" ? "M2 (P x T)" : opt.unit}
                                     </span>
                                   </div>
                                 </div>
@@ -1632,19 +1650,19 @@ function ItemCard({
               {activeUnit === "M2" && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                    <span>Dimensi Luas (M2):</span>
+                    <span>Dimensi Luas (P x T):</span>
                     <span className="text-primary font-bold">
                       {typeof state?.length === "number" &&
                       typeof state?.height === "number" &&
                       state.length > 0 &&
                       state.height > 0
-                        ? `${Math.round(state.length * state.height * 100) / 100} m²`
+                        ? `${Math.round(state.length * state.height * 100) / 100} m² (${state.length}m x ${state.height}m)`
                         : "Belum diisi (0 m²)"}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <div className="text-[11px] text-muted-foreground mb-0.5">Panjang (m)</div>
+                      <div className="text-[11px] text-muted-foreground mb-0.5">Panjang / P (m)</div>
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
@@ -1663,7 +1681,7 @@ function ItemCard({
                       </div>
                     </div>
                     <div>
-                      <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi (m)</div>
+                      <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
@@ -1681,6 +1699,10 @@ function ItemCard({
                         />
                       </div>
                     </div>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-0.5">
+                    <span>Rumus perhitungan:</span>
+                    <span className="font-semibold text-primary">Panjang (P) &times; Tinggi (T) &times; Tarif</span>
                   </div>
                 </div>
               )}
