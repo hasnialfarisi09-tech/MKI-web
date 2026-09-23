@@ -1,0 +1,299 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── MKI Brand — modern neutral/slate light theme (matches logo grey/orange) ── */
+    --background: 210 12% 97%;        /* clean light slate grey */
+    --foreground: 215 25% 12%;        /* deep slate charcoal */
+    --card: 210 10% 100%;             /* pure white card */
+    --card-foreground: 215 25% 12%;
+    --primary: 18 84% 51%;            /* logo orange */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 10% 93%;         /* light slate border/surface */
+    --secondary-foreground: 215 20% 15%;
+    --muted: 210 10% 92%;
+    --muted-foreground: 210 8% 45%;   /* muted slate grey */
+    --accent: 18 84% 51%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 8% 89%;             /* clean neutral grey border */
+    --input: 210 8% 89%;
+    --ring: 18 84% 51%;
+    --radius: 1.4rem;
+    --surface-elevated: 210 10% 98%;
+  }
+
+  /* ── MKI Brand — modern dark charcoal theme (matches logo dark grey) ── */
+  .dark {
+    --background: 220 20% 8%;         /* premium dark charcoal */
+    --foreground: 210 15% 90%;        /* warm silver bone */
+    --card: 215 20% 13%;              /* charcoal card */
+    --card-foreground: 210 15% 90%;
+    --primary: 18 88% 56%;            /* bright logo orange */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 15% 16%;
+    --secondary-foreground: 210 15% 85%;
+    --muted: 215 15% 15%;
+    --muted-foreground: 215 10% 60%;
+    --accent: 18 88% 56%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 66% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 15% 18%;
+    --input: 215 15% 18%;
+    --ring: 18 88% 56%;
+    --surface-elevated: 215 18% 14%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 84px;
+    /* clip (not hidden) prevents horizontal scroll WITHOUT creating a scroll
+       container — so position:sticky keeps working relative to the viewport. */
+    overflow-x: clip;
+  }
+
+  /* Smooth color transition on theme change — optimized to avoid '*' performance bottleneck */
+  html,
+  body,
+  header,
+  footer,
+  main,
+  section,
+  nav,
+  aside,
+  article,
+  dialog,
+  button,
+  a,
+  h1, h2, h3, h4, h5, h6,
+  p,
+  span,
+  input,
+  select,
+  textarea,
+  svg,
+  path,
+  .bg-background,
+  .bg-card,
+  .bg-secondary,
+  .text-foreground,
+  .text-muted-foreground,
+  .border,
+  .border-border {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 220ms;
+    transition-timing-function: ease;
+  }
+
+  /* Override so animations are not affected */
+  .animate-float,
+  .animate-float-slow,
+  .animate-aurora-drift,
+  .animate-marquee,
+  .reveal-hidden,
+  .reveal-visible {
+    transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  body {
+    @apply overflow-x-clip bg-background text-foreground antialiased;
+    padding-bottom: env(safe-area-inset-bottom);
+    font-feature-settings: "ss01", "cv01", "cv11";
+  }
+
+  /* Display serif (Fraunces) — used for headings via .font-display / h1-h3 utility */
+  .font-display {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-optical-sizing: auto;
+    letter-spacing: -0.018em;
+  }
+
+  ::selection {
+    @apply bg-mki-orange text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--secondary));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.35);
+    border-radius: 9999px;
+    border: 3px solid hsl(var(--secondary));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.7);
+  }
+}
+
+@layer components {
+  .section-padding {
+    @apply scroll-mt-24 py-20 md:py-28 lg:py-32;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-mki-orange/25 bg-mki-orange/[0.07] px-4 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.16em] text-mki-orange
+      dark:border-orange-500/25 dark:bg-orange-500/10 dark:text-orange-300;
+  }
+  .eyebrow::before {
+    content: "";
+    @apply size-1.5 rounded-full bg-mki-orange;
+  }
+
+  .premium-card {
+    @apply rounded-[1.4rem] border border-border bg-card shadow-soft transition-all duration-500;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Headline gradient ink */
+  .text-gradient {
+    @apply bg-gradient-to-br from-mki-charcoal via-mki-charcoal to-mki-orange bg-clip-text text-transparent dark:from-white dark:via-white dark:to-mki-ember;
+  }
+
+  /* Glassy surface for floating cards */
+  .glass {
+    @apply border border-white/15 bg-white/70 backdrop-blur-xl dark:bg-white/[0.06];
+  }
+
+  /* Reveal animation (fallback for Reveal.tsx when JS not yet hydrated) */
+  .reveal-hidden {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .reveal-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Background atmosphere ─────────────────────────────────────────────── */
+@layer utilities {
+  /* Film grain overlay — fixed, very subtle */
+  .grain-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: multiply;
+  }
+  .dark .grain-overlay {
+    opacity: 0.05;
+    mix-blend-mode: screen;
+  }
+
+  /* Dot pattern — small circles on a grid */
+  .bg-pattern-dots {
+    background-image: radial-gradient(circle, rgba(124, 105, 88, 0.4) 1.4px, transparent 1.4px);
+    background-size: 22px 22px;
+  }
+  .dark .bg-pattern-dots {
+    background-image: radial-gradient(circle, rgba(255, 240, 224, 0.14) 1.4px, transparent 1.4px);
+  }
+
+  .bg-pattern-grid {
+    background-image:
+      linear-gradient(to right, rgba(124, 105, 88, 0.12) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(124, 105, 88, 0.12) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .dark .bg-pattern-grid {
+    background-image:
+      linear-gradient(to right, rgba(255, 240, 224, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 240, 224, 0.04) 1px, transparent 1px);
+  }
+
+  .bg-pattern-grid-sm {
+    background-image:
+      linear-gradient(to right, rgba(124, 105, 88, 0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(124, 105, 88, 0.1) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .dark .bg-pattern-grid-sm {
+    background-image:
+      linear-gradient(to right, rgba(255, 240, 224, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 240, 224, 0.035) 1px, transparent 1px);
+  }
+
+  .bg-pattern-dots-dark {
+    background-image: radial-gradient(circle, rgba(255, 240, 224, 0.22) 1.4px, transparent 1.4px);
+    background-size: 26px 26px;
+  }
+
+  .bg-pattern-cross {
+    background-image:
+      linear-gradient(to right, rgba(124, 105, 88, 0.09) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(124, 105, 88, 0.09) 1px, transparent 1px),
+      radial-gradient(circle, rgba(124, 105, 88, 0.14) 1px, transparent 1px);
+    background-size: 44px 44px, 44px 44px, 44px 44px;
+    background-position: 0 0, 0 0, 22px 22px;
+  }
+  .dark .bg-pattern-cross {
+    background-image:
+      linear-gradient(to right, rgba(255, 240, 224, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 240, 224, 0.035) 1px, transparent 1px),
+      radial-gradient(circle, rgba(255, 240, 224, 0.06) 1px, transparent 1px);
+  }
+
+  /* Soft fade mask for marquees */
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  }
+
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+}
+
+@layer utilities {
+  @keyframes float-soft {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes float-slow {
+    0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+    50% { transform: translate3d(6px, -10px, 0) rotate(2deg); }
+  }
+  .animate-float {
+    animation: float-soft 4.8s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float-slow 6s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
