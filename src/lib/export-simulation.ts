@@ -336,7 +336,7 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   ctx.fillStyle = "#A8A29E";
   ctx.font = "italic 11px 'Segoe UI', Roboto, sans-serif";
   ctx.fillText(
-    "*Harga final disesuaikan setelah survey pengukuran aktual & konfirmasi detail desain",
+    "*Harga final disesuaikan setelah pengukuran aktual & konfirmasi detail desain",
     width - padding - 28,
     currentY + 115
   );
@@ -344,7 +344,7 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
 
   currentY += totalBoxHeight + 25;
 
-  // ==================== WORKSHOP STANDARDS & GUARANTEES ====================
+  // ==================== WORKSHOP STANDARDS ====================
   ctx.fillStyle = "#FAF9F6";
   ctx.beginPath();
   ctx.roundRect(padding, currentY, contentWidth, notesHeight, 12);
@@ -355,15 +355,15 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
 
   ctx.fillStyle = "#1C1917";
   ctx.font = "bold 14px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("Standar Mutu & Jaminan Workshop Resmi:", padding + 24, currentY + 34);
+  ctx.fillText("Standar Mutu & Spesifikasi Produksi Workshop:", padding + 24, currentY + 34);
 
   ctx.fillStyle = "#57534E";
   ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
   const notes = [
-    "✓ Garansi struktur 1 tahun, engsel slow-motion & rel laci presisi standar workshop resmi.",
-    "✓ Gratis konsultasi layout & survey pengukuran aktual ke lokasi tanpa komitmen awal.",
-    "✓ Sudah termasuk visualisasi desain 3D & pemasangan langsung oleh tim teknis workshop berpengalaman.",
+    "✓ Aksesoris engsel soft-close & rel laci presisi standar workshop terstandarisasi.",
     "✓ Bahan multiplek/blockboard berkualitas grade A dengan finishing HPL/Duco tahan lembap.",
+    "✓ Sudah termasuk visualisasi desain 3D & pemasangan langsung oleh tim teknis workshop berpengalaman.",
+    "✓ Standar mutu pengerjaan rapi, presisi, dan kokoh untuk kebutuhan interior jangka panjang.",
   ];
 
   notes.forEach((note, idx) => {

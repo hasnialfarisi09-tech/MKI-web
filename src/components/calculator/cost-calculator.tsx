@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  ArrowRight,
   Bed,
   Building2,
   Check,
@@ -18,13 +17,11 @@ import {
   Minus,
   Plus,
   RotateCcw,
-  ShieldCheck,
   Sparkles,
   Trash2,
   Tv,
   User,
   UtensilsCrossed,
-  MessageCircle,
 } from "lucide-react";
 
 import {
@@ -38,8 +35,6 @@ import {
   Region,
 } from "@/data/pricing-calculator";
 import { cn } from "@/lib/cn";
-import { company } from "@/constants/company";
-import { normalizePhoneNumber } from "@/lib/whatsapp";
 import { track } from "@/lib/analytics";
 import {
   exportSimulationAsJpg,
@@ -522,57 +517,6 @@ export function CostCalculator() {
       activeBreakdown,
     };
   }, [itemsState, region, customAccessories]);
-
-  // Construct WhatsApp URL (Clean & Neutral, without specific brand names)
-  const whatsAppUrl = useMemo(() => {
-    const breakdownLines = calculationSummary.activeBreakdown.map((b, idx) => {
-      if (b.optionName === "Kustom") {
-        return `${idx + 1}. ${b.item.name} (Aksesoris Tambahan)\n   - Jumlah: ${b.measurement} unit x ${formatRupiah(b.unitPrice)} = ${formatRupiah(b.subtotal)}`;
-      }
-      const dimStr =
-        b.item.id === "meja_island"
-          ? `(${b.measurement} m : 0,6)`
-          : b.item.id === "cab_atas_full_plafond"
-            ? `(${b.measurement} m x 2)`
-            : b.unit === "M1"
-              ? `${b.measurement} m1`
-              : b.unit === "M2"
-                ? `${b.measurement} m²`
-                : `${b.measurement} QTY`;
-      return `${idx + 1}. ${b.item.name}\n   - Bahan: ${b.optionName} (${b.modelName})\n   - Ukuran: ${dimStr} x ${formatRupiah(b.unitPrice)} = ${formatRupiah(b.subtotal)}`;
-    });
-
-    const lines = [
-      "Halo Tim Workshop Interior,",
-      "",
-      ...(accountName.trim() ? [`• Identitas Akun: ${accountName.trim()}`] : []),
-      ...(clientName.trim() ? [`• Nama Klien: ${clientName.trim()}`] : []),
-      ...(clientAddress.trim() ? [`• Alamat Klien: ${clientAddress.trim()}`] : []),
-      "Saya telah mencoba simulasi kalkulator estimasi biaya interior dengan rincian berikut:",
-      `• Lokasi Pemasangan: ${selectedCity.name}, ${selectedProvince.name}`,
-      `• Total Komponen: ${calculationSummary.activeCount} item`,
-      "",
-      "Rincian Item Pilihan:",
-      ...breakdownLines,
-      "",
-      "--------------------------------------------------",
-      `TOTAL ESTIMASI SEMENTARA: ${formatRupiah(calculationSummary.grandTotal)}`,
-      "--------------------------------------------------",
-      "",
-      "Apakah bisa dijadwalkan survey lokasi dan konsultasi layout lebih lanjut?",
-    ];
-
-    const phone = normalizePhoneNumber(company.phone);
-    const text = encodeURIComponent(lines.join("\n"));
-    return `https://wa.me/${phone}?text=${text}`;
-  }, [
-    selectedCity,
-    selectedProvince,
-    calculationSummary,
-    accountName,
-    clientName,
-    clientAddress,
-  ]);
 
   const activeCategoryItems = useMemo(() => {
     if (activeCategory === "kitchen") {
@@ -1342,39 +1286,6 @@ export function CostCalculator() {
                   *Centang komponen untuk mengaktifkan pilihan download JPG & PDF
                 </p>
               )}
-            </div>
-
-            {/* CTAs */}
-            <div className="space-y-3 pt-2">
-              <a
-                href={whatsAppUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => track("whatsapp_click", { source: "calculator" })}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm hover:brightness-110 transition-all shadow-sm"
-              >
-                <MessageCircle className="size-4.5" />
-                <span>Konsultasikan via WhatsApp</span>
-              </a>
-
-              <a
-                href={whatsAppUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-background text-foreground hover:bg-muted border border-border text-xs font-semibold transition-all"
-              >
-                <span>Jadwalkan Survey Gratis ke Lokasi</span>
-                <ArrowRight className="size-3.5" />
-              </a>
-            </div>
-
-            {/* Workshop Guarantees note */}
-            <div className="mt-6 pt-4 border-t border-border flex items-center gap-3 text-xs text-muted-foreground">
-              <ShieldCheck className="size-5 text-primary shrink-0" />
-              <p className="leading-tight">
-                Garansi struktur 1 tahun, aksesoris soft-close, dan pengerjaan presisi
-                standar workshop resmi.
-              </p>
             </div>
           </div>
         </div>
