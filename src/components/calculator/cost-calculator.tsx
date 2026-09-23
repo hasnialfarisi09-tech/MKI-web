@@ -15,6 +15,7 @@ import {
   Loader2,
   MapPin,
   Minus,
+  Pencil,
   Plus,
   RotateCcw,
   Sparkles,
@@ -237,7 +238,9 @@ export function calculateCabinetLayout(
 
 export const calculateKitchenCabinetM1 = calculateCabinetLayout;
 
-type ItemState = {
+export type ItemInstance = {
+  instanceId: string;
+  itemId: string;
   enabled: boolean;
   optionId: string;
   length: number | "";
@@ -248,7 +251,9 @@ type ItemState = {
   length3?: number | "";
 };
 
-type CalculatorState = Record<string, ItemState>;
+export type ItemState = ItemInstance;
+
+export type CalculatorState = Record<string, ItemInstance[]>;
 
 type CategoryKey = "kitchen" | "wardrobe" | "living" | "bedroom";
 
@@ -330,16 +335,20 @@ const CATEGORY_TABS = [
 function buildInitialState(): CalculatorState {
   const state: CalculatorState = {};
   for (const item of ALL_ITEMS) {
-    state[item.id] = {
-      enabled: false,
-      optionId: item.options[0]?.id ?? "",
-      length: "",
-      height: "",
-      qty: "",
-      layout: "lurus",
-      length2: "",
-      length3: "",
-    };
+    state[item.id] = [
+      {
+        instanceId: `${item.id}_0`,
+        itemId: item.id,
+        enabled: false,
+        optionId: item.options[0]?.id ?? "",
+        length: 0,
+        height: 0,
+        qty: 0,
+        layout: "lurus",
+        length2: 0,
+        length3: 0,
+      },
+    ];
   }
   return state;
 }
@@ -465,6 +474,9 @@ export function CostCalculator() {
     bedroom: [{ id: "custom_acc_bedroom_1", name: "", price: "", qty: "" }],
   });
 
+  // Track editing state for custom accessories per category
+  const [accEditingMap, setAccEditingMap] = useState<Record<string, boolean>>({});
+
   // State: Export loading status
   const [isExporting, setIsExporting] = useState<"jpg" | "pdf" | null>(null);
 
@@ -495,118 +507,158 @@ export function CostCalculator() {
     }
   };
 
-  // Toggle item enable/disable
-  const toggleItem = (itemId: string) => {
-    setItemsState((prev) => {
-      const current = prev[itemId];
-      const willEnable = !current?.enabled;
-      const targetConfig = ALL_ITEMS.find((i) => i.id === itemId);
+  // Add another instance of a component
+  const addComponentInstance = (itemId: string) => {
+    const itemConfig = ALL_ITEMS.find((i) => i.id === itemId);
+    if (!itemConfig) return;
 
+    setItemsState((prev) => {
+      const list = prev[itemId] || [];
+      const newInstance: ItemInstance = {
+        instanceId: `${itemId}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        itemId,
+        enabled: true, // Langsung aktif saat ditambah
+        optionId: itemConfig.options[0]?.id ?? "",
+        length: 0,
+        height: 0,
+        qty: 0,
+        layout: "lurus",
+        length2: 0,
+        length3: 0,
+      };
+      const updatedList = list.map((inst, idx) =>
+        idx === 0 ? { ...inst, enabled: true } : inst
+      );
       return {
         ...prev,
-        [itemId]: {
-          ...current,
-          enabled: willEnable,
-          length:
-            willEnable && (!current?.length || current.length === 0)
-              ? (targetConfig?.defaultLength ?? 3)
-              : (current?.length ?? ""),
-          height:
-            willEnable && (!current?.height || current.height === 0)
-              ? (targetConfig?.defaultHeight ?? 2.8)
-              : (current?.height ?? ""),
-          qty:
-            willEnable && (!current?.qty || current.qty === 0)
-              ? (targetConfig?.defaultQty ?? 1)
-              : (current?.qty ?? ""),
-          layout: current?.layout ?? "lurus",
-          length2: current?.length2 ?? "",
-          length3: current?.length3 ?? "",
-        },
+        [itemId]: [...updatedList, newInstance],
       };
     });
   };
 
-  // Set option for an item
-  const setOption = (itemId: string, optionId: string) => {
+  // Remove a specific instance of a component
+  const removeComponentInstance = (itemId: string, instanceId: string) => {
     setItemsState((prev) => {
-      const current = prev[itemId];
-      const targetConfig = ALL_ITEMS.find((i) => i.id === itemId);
-      const newOpt = targetConfig?.options.find((o) => o.id === optionId);
-
-      const newLength =
-        !current?.length || current.length === 0
-          ? (targetConfig?.defaultLength ?? 1.5)
-          : current?.length;
-
-      const newHeight =
-        newOpt?.unit === "M2" && (!current?.height || current.height === 0)
-          ? (targetConfig?.defaultHeight ?? 2.0)
-          : current?.height ?? "";
-
-      const newQty =
-        newOpt?.unit === "UNIT" && (!current?.qty || current.qty === 0)
-          ? (targetConfig?.defaultQty ?? 1)
-          : current?.qty ?? "";
-
-      return {
-        ...prev,
-        [itemId]: {
-          ...current,
-          optionId,
-          length: newLength,
-          height: newHeight,
-          qty: newQty,
-        },
-      };
-    });
-  };
-
-  // Set layout for kitchen cabinets and wardrobe
-  const setLayout = (itemId: string, layout: KitchenLayoutType) => {
-    setItemsState((prev) => {
-      const current = prev[itemId];
-      if (!current) return prev;
-
-      const isWardrobe = itemId === "lemari_pakaian";
-      let p1: number =
-        typeof current.length === "number" && current.length > 0
-          ? current.length
-          : isWardrobe
-            ? 2
-            : 3;
-      let p2: number | "" =
-        typeof current.length2 === "number" && current.length2 > 0 ? current.length2 : "";
-      let p3: number | "" =
-        typeof current.length3 === "number" && current.length3 > 0 ? current.length3 : "";
-      let ht: number | "" =
-        typeof current.height === "number" && current.height > 0
-          ? current.height
-          : isWardrobe
-            ? 2.6
-            : current.height;
-
-      if (layout === "l_shape") {
-        if (p2 === "" || p2 === 0) p2 = 2;
-        p3 = "";
-      } else if (layout === "u_shape") {
-        if (p2 === "" || p2 === 0) p2 = isWardrobe ? 2 : 2.5;
-        if (p3 === "" || p3 === 0) p3 = 2;
-      } else {
-        p2 = "";
-        p3 = "";
+      const list = prev[itemId] || [];
+      if (list.length <= 1) {
+        return {
+          ...prev,
+          [itemId]: [
+            {
+              ...list[0],
+              enabled: false,
+              length: 0,
+              height: 0,
+              qty: 0,
+              layout: "lurus",
+              length2: 0,
+              length3: 0,
+            },
+          ],
+        };
       }
-
       return {
         ...prev,
-        [itemId]: {
-          ...current,
-          layout,
-          length: p1,
-          length2: p2,
-          length3: p3,
-          height: isWardrobe ? ht : current.height,
-        },
+        [itemId]: list.filter((inst) => inst.instanceId !== instanceId),
+      };
+    });
+  };
+
+  // Toggle all instances of an item (for the outer card checkbox)
+  const toggleItemAll = (itemId: string) => {
+    setItemsState((prev) => {
+      const list = prev[itemId] || [];
+      const hasAnyEnabled = list.some((inst) => inst.enabled);
+      return {
+        ...prev,
+        [itemId]: list.map((inst, idx) => {
+          if (hasAnyEnabled) {
+            return { ...inst, enabled: false };
+          } else {
+            if (idx === 0) {
+              return {
+                ...inst,
+                enabled: true,
+                length: typeof inst.length === "number" ? inst.length : 0,
+                height: typeof inst.height === "number" ? inst.height : 0,
+                qty: typeof inst.qty === "number" ? inst.qty : 0,
+              };
+            }
+            return inst;
+          }
+        }),
+      };
+    });
+  };
+
+  // Toggle item instance enable/disable
+  const toggleItem = (itemId: string, instanceId: string) => {
+    setItemsState((prev) => {
+      const list = prev[itemId] || [];
+      return {
+        ...prev,
+        [itemId]: list.map((inst) => {
+          if (inst.instanceId !== instanceId) return inst;
+          return {
+            ...inst,
+            enabled: !inst.enabled,
+            length: typeof inst.length === "number" ? inst.length : 0,
+            height: typeof inst.height === "number" ? inst.height : 0,
+            qty: typeof inst.qty === "number" ? inst.qty : 0,
+          };
+        }),
+      };
+    });
+  };
+
+  // Set option for an item instance
+  const setOption = (itemId: string, instanceId: string, optionId: string) => {
+    setItemsState((prev) => {
+      const list = prev[itemId] || [];
+      return {
+        ...prev,
+        [itemId]: list.map((inst) => {
+          if (inst.instanceId !== instanceId) return inst;
+          return {
+            ...inst,
+            optionId,
+          };
+        }),
+      };
+    });
+  };
+
+  // Set layout for kitchen cabinets and wardrobe instance
+  const setLayout = (itemId: string, instanceId: string, layout: KitchenLayoutType) => {
+    setItemsState((prev) => {
+      const list = prev[itemId] || [];
+      return {
+        ...prev,
+        [itemId]: list.map((inst) => {
+          if (inst.instanceId !== instanceId) return inst;
+          const p1 = typeof inst.length === "number" ? inst.length : 0;
+          let p2: number | "" = typeof inst.length2 === "number" ? inst.length2 : 0;
+          let p3: number | "" = typeof inst.length3 === "number" ? inst.length3 : 0;
+          const ht = typeof inst.height === "number" ? inst.height : 0;
+
+          if (layout === "l_shape") {
+            p3 = 0;
+          } else if (layout === "u_shape") {
+            // keep p2, p3
+          } else {
+            p2 = 0;
+            p3 = 0;
+          }
+
+          return {
+            ...inst,
+            layout,
+            length: p1,
+            length2: p2,
+            length3: p3,
+            height: ht,
+          };
+        }),
       };
     });
   };
@@ -614,20 +666,25 @@ export function CostCalculator() {
   // Update dimension with +/- buttons
   const updateDimension = (
     itemId: string,
+    instanceId: string,
     field: DimensionField,
     delta: number,
-    minVal: number = 0.5
+    minVal: number = 0
   ) => {
     setItemsState((prev) => {
-      const currentVal = prev[itemId]?.[field];
-      const num = typeof currentVal === "number" ? currentVal : minVal;
-      const next = Math.max(minVal, Math.round((num + delta) * 10) / 10);
+      const list = prev[itemId] || [];
       return {
         ...prev,
-        [itemId]: {
-          ...prev[itemId],
-          [field]: next,
-        },
+        [itemId]: list.map((inst) => {
+          if (inst.instanceId !== instanceId) return inst;
+          const currentVal = inst[field];
+          const num = typeof currentVal === "number" ? currentVal : 0;
+          const next = Math.max(minVal, Math.round((num + delta) * 10) / 10);
+          return {
+            ...inst,
+            [field]: next,
+          };
+        }),
       };
     });
   };
@@ -635,16 +692,23 @@ export function CostCalculator() {
   // Set dimension directly from input
   const setDirectDimension = (
     itemId: string,
+    instanceId: string,
     field: DimensionField,
     val: number | ""
   ) => {
-    setItemsState((prev) => ({
-      ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        [field]: val === "" ? "" : Math.max(0, val),
-      },
-    }));
+    setItemsState((prev) => {
+      const list = prev[itemId] || [];
+      return {
+        ...prev,
+        [itemId]: list.map((inst) => {
+          if (inst.instanceId !== instanceId) return inst;
+          return {
+            ...inst,
+            [field]: val === "" ? "" : Math.max(0, val),
+          };
+        }),
+      };
+    });
   };
 
   // Reset entire calculator to initial state
@@ -656,6 +720,7 @@ export function CostCalculator() {
       living: [{ id: "custom_acc_living_1", name: "", price: "", qty: "" }],
       bedroom: [{ id: "custom_acc_bedroom_1", name: "", price: "", qty: "" }],
     });
+    setAccEditingMap({});
     setAccountName("");
     setClientName("");
     setClientAddress("");
@@ -680,84 +745,108 @@ export function CostCalculator() {
       subtotal: number;
     }> = [];
 
-    // 1. Process regular configured items
+    // 1. Process regular configured items (all instances)
     for (const item of ALL_ITEMS) {
-      const state = itemsState[item.id];
-      if (!state?.enabled) continue;
+      const instances = itemsState[item.id] || [];
+      const totalInstances = instances.length;
 
-      const selectedOption =
-        item.options.find((opt) => opt.id === state.optionId) ?? item.options[0];
-      if (!selectedOption) continue;
+      instances.forEach((state, idx) => {
+        if (!state?.enabled) return;
 
-      const unitPrice =
-        region === "DK" ? selectedOption.priceDK : selectedOption.priceLK;
+        const selectedOption =
+          item.options.find((opt) => opt.id === state.optionId) ?? item.options[0];
+        if (!selectedOption) return;
 
-      const len = typeof state.length === "number" ? state.length : 0;
-      const ht = typeof state.height === "number" ? state.height : 0;
-      const q = typeof state.qty === "number" ? state.qty : 0;
+        const unitPrice =
+          region === "DK" ? selectedOption.priceDK : selectedOption.priceLK;
 
-      let subtotal = 0;
-      let measurement = 0;
-      let displayName = item.name;
+        const len = typeof state.length === "number" ? state.length : 0;
+        const ht = typeof state.height === "number" ? state.height : 0;
+        const q = typeof state.qty === "number" ? state.qty : 0;
 
-      if (LAYOUT_ENABLED_ITEMS.includes(item.id)) {
-        const p1 = len;
-        const p2 = typeof state.length2 === "number" ? state.length2 : 0;
-        const p3 = typeof state.length3 === "number" ? state.length3 : 0;
-        const layoutRes = calculateCabinetLayout(
-          item.id,
-          state.layout ?? "lurus",
-          p1,
-          p2,
-          p3,
-          ht
-        );
-        measurement = layoutRes.effectiveMeasurement;
-        subtotal = Math.round(measurement * unitPrice);
-        if (layoutRes.unit === "M2") {
-          totalM2 += measurement;
+        let subtotal = 0;
+        let measurement = 0;
+        const baseName = totalInstances > 1 ? `${item.name} #${idx + 1}` : item.name;
+        let displayName = baseName;
+
+        if (LAYOUT_ENABLED_ITEMS.includes(item.id)) {
+          const p1 = len;
+          const p2 = typeof state.length2 === "number" ? state.length2 : 0;
+          const p3 = typeof state.length3 === "number" ? state.length3 : 0;
+          const layoutRes = calculateCabinetLayout(
+            item.id,
+            state.layout ?? "lurus",
+            p1,
+            p2,
+            p3,
+            ht
+          );
+          measurement = layoutRes.effectiveMeasurement;
+          subtotal = Math.round(measurement * unitPrice);
+          if (state.layout && state.layout !== "lurus") {
+            displayName = `${baseName} (${layoutRes.layoutName})`;
+          }
+        } else if (item.id === "meja_island") {
+          measurement = len;
+          subtotal = len > 0 ? Math.round((len / 0.6) * unitPrice) : 0;
+        } else if (item.id === "lemari_bawah_tangga") {
+          const area = Math.round(len * ht * 0.8 * 100) / 100;
+          measurement = area;
+          subtotal = len > 0 && ht > 0 ? Math.round(len * ht * 0.8 * unitPrice) : 0;
+        } else if (selectedOption.unit === "M1") {
+          measurement = len;
+          subtotal = len * unitPrice;
+        } else if (selectedOption.unit === "M2") {
+          const area = Math.round(len * ht * 100) / 100;
+          measurement = area;
+          subtotal = area * unitPrice;
         } else {
-          totalM1 += measurement;
+          measurement = q;
+          subtotal = q * unitPrice;
         }
-        if (state.layout && state.layout !== "lurus") {
-          displayName = `${item.name} (${layoutRes.layoutName})`;
+
+        // Jika nilai rupiah (subtotal) <= 0, anggap unit tidak aktif: tidak tampil di ringkasan & export
+        if (subtotal <= 0) return;
+
+        // Akumulasi dimensi hanya untuk unit yang aktif (subtotal > 0)
+        if (LAYOUT_ENABLED_ITEMS.includes(item.id)) {
+          const layoutRes = calculateCabinetLayout(
+            item.id,
+            state.layout ?? "lurus",
+            len,
+            typeof state.length2 === "number" ? state.length2 : 0,
+            typeof state.length3 === "number" ? state.length3 : 0,
+            ht
+          );
+          if (layoutRes.unit === "M2") {
+            totalM2 += measurement;
+          } else {
+            totalM1 += measurement;
+          }
+        } else if (item.id === "meja_island") {
+          totalM1 += len;
+        } else if (item.id === "lemari_bawah_tangga") {
+          totalM2 += measurement;
+        } else if (selectedOption.unit === "M1") {
+          totalM1 += len;
+        } else if (selectedOption.unit === "M2") {
+          totalM2 += measurement;
         }
-      } else if (item.id === "meja_island") {
-        measurement = len;
-        subtotal = len > 0 ? Math.round((len / 0.6) * unitPrice) : 0;
-        totalM1 += len;
-      } else if (item.id === "lemari_bawah_tangga") {
-        const area = Math.round(len * ht * 0.8 * 100) / 100;
-        measurement = area;
-        subtotal = len > 0 && ht > 0 ? Math.round(len * ht * 0.8 * unitPrice) : 0;
-        totalM2 += area;
-      } else if (selectedOption.unit === "M1") {
-        measurement = len;
-        subtotal = len * unitPrice;
-        totalM1 += len;
-      } else if (selectedOption.unit === "M2") {
-        const area = Math.round(len * ht * 100) / 100;
-        measurement = area;
-        subtotal = area * unitPrice;
-        totalM2 += area;
-      } else {
-        measurement = q;
-        subtotal = q * unitPrice;
-      }
 
-      grandTotal += subtotal;
-      activeCount += 1;
+        grandTotal += subtotal;
+        activeCount += 1;
 
-      activeBreakdown.push({
-        item,
-        displayName,
-        layout: state.layout ?? "lurus",
-        optionName: selectedOption.name,
-        modelName: selectedOption.model,
-        unitPrice,
-        unit: selectedOption.unit,
-        measurement,
-        subtotal,
+        activeBreakdown.push({
+          item,
+          displayName,
+          layout: state.layout ?? "lurus",
+          optionName: selectedOption.name,
+          modelName: selectedOption.model,
+          unitPrice,
+          unit: selectedOption.unit,
+          measurement,
+          subtotal,
+        });
       });
     }
 
@@ -808,7 +897,7 @@ export function CostCalculator() {
     return OTHER_CATEGORIES.filter((item) => item.category === activeCategory);
   }, [activeCategory]);
 
-  // Compute selected count per category
+  // Compute selected count per category (hanya menghitung unit yang aktif dengan subtotal > 0)
   const categoryCounts = useMemo(() => {
     const counts: Record<CategoryKey, number> = {
       kitchen: 0,
@@ -817,18 +906,25 @@ export function CostCalculator() {
       bedroom: 0,
     };
 
+    const isInstanceActive = (item: FurnitureItemConfig, inst: ItemInstance) => {
+      if (!inst.enabled) return false;
+      const c = getInstanceCalculation(item, inst, region);
+      return c.subtotal > 0;
+    };
+
     for (const item of KITCHEN_ITEMS) {
-      if (itemsState[item.id]?.enabled) counts.kitchen += 1;
+      const active = (itemsState[item.id] || []).filter((i) => isInstanceActive(item, i)).length;
+      counts.kitchen += active;
     }
     for (const item of ELECTRONIC_ITEMS) {
-      if (itemsState[item.id]?.enabled) counts.kitchen += 1;
+      const active = (itemsState[item.id] || []).filter((i) => isInstanceActive(item, i)).length;
+      counts.kitchen += active;
     }
     for (const item of OTHER_CATEGORIES) {
-      if (itemsState[item.id]?.enabled) {
-        if (item.category === "wardrobe") counts.wardrobe += 1;
-        else if (item.category === "living") counts.living += 1;
-        else if (item.category === "bedroom") counts.bedroom += 1;
-      }
+      const active = (itemsState[item.id] || []).filter((i) => isInstanceActive(item, i)).length;
+      if (item.category === "wardrobe") counts.wardrobe += active;
+      else if (item.category === "living") counts.living += active;
+      else if (item.category === "bedroom") counts.bedroom += active;
     }
 
     // Include valid custom accessories per category
@@ -844,7 +940,7 @@ export function CostCalculator() {
     }
 
     return counts;
-  }, [itemsState, customAccessories]);
+  }, [itemsState, region, customAccessories]);
 
   const addCustomAccessory = (cat: CategoryKey) => {
     setCustomAccessories((prev) => ({
@@ -1124,23 +1220,28 @@ export function CostCalculator() {
 
           {/* Render Active Category Items */}
           <div className="space-y-4">
-            {activeCategoryItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                region={region}
-                state={itemsState[item.id]}
-                onToggle={() => toggleItem(item.id)}
-                onSelectOption={(optId) => setOption(item.id, optId)}
-                onUpdateDimension={(field, delta, min) =>
-                  updateDimension(item.id, field, delta, min)
-                }
-                onSetDirectDimension={(field, val) =>
-                  setDirectDimension(item.id, field, val)
-                }
-                onSetLayout={(layout) => setLayout(item.id, layout)}
-              />
-            ))}
+            {activeCategoryItems.map((item) => {
+              const instances = itemsState[item.id] || [];
+              return (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  region={region}
+                  instances={instances}
+                  onToggle={() => toggleItemAll(item.id)}
+                  onSelectOption={(instanceId, optId) => setOption(item.id, instanceId, optId)}
+                  onUpdateDimension={(instanceId, field, delta, min) =>
+                    updateDimension(item.id, instanceId, field, delta, min)
+                  }
+                  onSetDirectDimension={(instanceId, field, val) =>
+                    setDirectDimension(item.id, instanceId, field, val)
+                  }
+                  onSetLayout={(instanceId, layout) => setLayout(item.id, instanceId, layout)}
+                  onAddInstance={() => addComponentInstance(item.id)}
+                  onRemoveInstance={(instanceId) => removeComponentInstance(item.id, instanceId)}
+                />
+              );
+            })}
           </div>
 
           {/* Kitchen Electronics & Appliances Accordion (Displayed in Kitchen tab) */}
@@ -1187,22 +1288,28 @@ export function CostCalculator() {
                     </div>
                   </div>
 
-                  {ELECTRONIC_ITEMS.map((item) => (
-                    <ItemCard
-                      key={item.id}
-                      item={item}
-                      region={region}
-                      state={itemsState[item.id]}
-                      onToggle={() => toggleItem(item.id)}
-                      onSelectOption={(optId) => setOption(item.id, optId)}
-                      onUpdateDimension={(field, delta, min) =>
-                        updateDimension(item.id, field, delta, min)
-                      }
-                      onSetDirectDimension={(field, val) =>
-                        setDirectDimension(item.id, field, val)
-                      }
-                    />
-                  ))}
+                  {ELECTRONIC_ITEMS.map((item) => {
+                    const instances = itemsState[item.id] || [];
+                    return (
+                      <ItemCard
+                        key={item.id}
+                        item={item}
+                        region={region}
+                        instances={instances}
+                        onToggle={() => toggleItemAll(item.id)}
+                        onSelectOption={(instanceId, optId) => setOption(item.id, instanceId, optId)}
+                        onUpdateDimension={(instanceId, field, delta, min) =>
+                          updateDimension(item.id, instanceId, field, delta, min)
+                        }
+                        onSetDirectDimension={(instanceId, field, val) =>
+                          setDirectDimension(item.id, instanceId, field, val)
+                        }
+                        onSetLayout={(instanceId, layout) => setLayout(item.id, instanceId, layout)}
+                        onAddInstance={() => addComponentInstance(item.id)}
+                        onRemoveInstance={(instanceId) => removeComponentInstance(item.id, instanceId)}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1246,34 +1353,55 @@ export function CostCalculator() {
                     const p = typeof acc.price === "number" ? acc.price : 0;
                     const q = parseQty(acc.qty);
                     const sub = Math.round(p * q);
+                    const totalAccessories = customAccessories[activeCategory].length;
+                    const isLatest = index === totalAccessories - 1;
+                    const isEditing =
+                      totalAccessories <= 1 ||
+                      (accEditingMap[acc.id] !== undefined ? accEditingMap[acc.id] : isLatest);
 
-                    return (
+                    return isEditing ? (
                       <div
                         key={acc.id}
-                        className="rounded-xl border border-border bg-card p-3.5 sm:p-4 shadow-2xs transition-all hover:border-primary/40"
+                        className="rounded-xl border border-primary/40 bg-card p-3.5 sm:p-4 shadow-2xs transition-all"
                       >
-                        <div className="flex items-center justify-between gap-2 mb-2.5">
-                          <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                            <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
-                              {index + 1}
+                        <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-primary/20">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground shadow-2xs">
+                              <Sparkles className="size-3" />
+                              <span>Item Aksesoris #{index + 1}</span>
                             </span>
-                            <span>Item Aksesoris #{index + 1}</span>
-                          </span>
-
-                          <div className="flex items-center gap-3">
                             {sub > 0 && (
                               <span className="text-xs font-bold text-primary">
                                 Subtotal: {formatRupiah(sub)}
                               </span>
                             )}
-                            {customAccessories[activeCategory].length > 1 && (
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {totalAccessories > 1 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAccEditingMap((prev) => ({
+                                    ...prev,
+                                    [acc.id]: false,
+                                  }))
+                                }
+                                className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted transition-colors cursor-pointer"
+                                title="Ringkas tampilan aksesoris ini"
+                              >
+                                Ringkas
+                              </button>
+                            )}
+                            {totalAccessories > 1 && (
                               <button
                                 type="button"
                                 onClick={() => removeCustomAccessory(activeCategory, acc.id)}
-                                className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-500/10 cursor-pointer"
-                                title="Hapus baris aksesoris ini"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-500/10 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                title={`Hapus Item Aksesoris #${index + 1}`}
                               >
-                                <Trash2 className="size-4" />
+                                <Trash2 className="size-3.5" />
+                                <span className="hidden sm:inline">Hapus</span>
                               </button>
                             )}
                           </div>
@@ -1375,23 +1503,109 @@ export function CostCalculator() {
                           </div>
                         </div>
                       </div>
+                    ) : (
+                      <div
+                        key={acc.id}
+                        className="rounded-xl border border-primary/40 bg-primary/5 hover:border-primary/60 p-3.5 sm:p-4 transition-all shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold font-sans bg-primary text-primary-foreground shadow-2xs">
+                              <Sparkles className="size-3" />
+                              <span>Item Aksesoris #{index + 1}</span>
+                            </span>
+                            <span className="text-xs font-bold text-foreground">
+                              {acc.name.trim() || `Item Aksesoris #${index + 1}`}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 ml-auto">
+                            <span className="text-xs sm:text-sm font-bold text-primary">
+                              {sub > 0 ? formatRupiah(sub) : "Rp 0"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAccEditingMap((prev) => ({
+                                  ...prev,
+                                  [acc.id]: true,
+                                }))
+                              }
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-primary hover:bg-primary/10 border border-primary/25 transition-colors cursor-pointer"
+                              title="Ubah data aksesoris ini"
+                            >
+                              <Pencil className="size-3" />
+                              <span>Ubah</span>
+                            </button>
+                            {totalAccessories > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeCustomAccessory(activeCategory, acc.id)}
+                                className="size-7 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 flex items-center justify-center transition-colors cursor-pointer"
+                                title={`Hapus Item Aksesoris #${index + 1}`}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground gap-1.5 pt-1.5 border-t border-border/40">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-foreground">Jumlah / Qty:</span>
+                            <span className="font-bold text-foreground bg-background px-2 py-0.5 rounded-md border border-border/60">
+                              {q > 0 ? `${q} unit` : "0 unit"}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground shrink-0">
+                            Harga Satuan: {p > 0 ? formatRupiah(p) : "Rp 0"} / unit
+                          </div>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
 
-                <div className="pt-1 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => addCustomAccessory(activeCategory)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    <Plus className="size-3.5" />
-                    <span>Tambah Baris Aksesoris</span>
-                  </button>
-                  <span className="text-[11px] text-muted-foreground">
-                    *Bisa isi nama aksesoris, tarif, & qty bebas (bisa desimal/koma)
-                  </span>
-                </div>
+                {(() => {
+                  const isAddAccessoryDisabled = customAccessories[activeCategory].some(
+                    (acc) =>
+                      acc.name.trim() === "" ||
+                      typeof acc.price !== "number" ||
+                      acc.price <= 0 ||
+                      parseQty(acc.qty) <= 0
+                  );
+
+                  return (
+                    <div className="pt-1 flex items-center justify-between gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        disabled={isAddAccessoryDisabled}
+                        onClick={() => {
+                          if (isAddAccessoryDisabled) return;
+                          setAccEditingMap({});
+                          addCustomAccessory(activeCategory);
+                        }}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border text-xs font-bold transition-all shadow-2xs",
+                          isAddAccessoryDisabled
+                            ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed select-none"
+                            : "border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary hover:shadow-xs cursor-pointer"
+                        )}
+                        title={
+                          isAddAccessoryDisabled
+                            ? "Lengkapi nama, harga satuan, dan jumlah (qty) aksesoris terlebih dahulu untuk menambah baris baru"
+                            : "Tambah baris aksesoris baru"
+                        }
+                      >
+                        <Plus className="size-3.5" />
+                        <span>Tambah Baris Aksesoris</span>
+                      </button>
+                      <span className="text-[11px] text-muted-foreground">
+                        *Bisa isi nama aksesoris, tarif, & qty bebas (bisa desimal/koma)
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1472,8 +1686,7 @@ export function CostCalculator() {
 
               {calculationSummary.activeBreakdown.length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground italic bg-muted/30 rounded-xl border border-dashed border-border">
-                  Belum ada komponen yang dicentang. Centang komponen di sebelah kiri
-                  untuk melihat simulasi.
+                  Belum ada komponen aktif yang diisi ukurannya. Centang komponen di sebelah kiri dan masukkan ukuran dimensi untuk melihat rincian estimasi.
                 </div>
               ) : (
                 <div className="space-y-3 max-h-72 overflow-y-auto pr-1 text-xs">
@@ -1577,12 +1790,207 @@ export function CostCalculator() {
   );
 }
 
-/** Individual Item Card Component */
-type ItemCardProps = {
+/** Helper calculation per item instance */
+function getInstanceCalculation(
+  item: FurnitureItemConfig,
+  instance: ItemInstance,
+  region: Region
+) {
+  const selectedOption =
+    item.options.find((opt) => opt.id === instance.optionId) ?? item.options[0];
+  const unitPrice = selectedOption
+    ? region === "DK"
+      ? selectedOption.priceDK
+      : selectedOption.priceLK
+    : 0;
+
+  const len = typeof instance.length === "number" ? instance.length : 0;
+  const ht = typeof instance.height === "number" ? instance.height : 0;
+  const q = typeof instance.qty === "number" ? instance.qty : 0;
+  const p2 = typeof instance.length2 === "number" ? instance.length2 : 0;
+  const p3 = typeof instance.length3 === "number" ? instance.length3 : 0;
+
+  let subtotal = 0;
+  let measurement = 0;
+  let layoutResult: ReturnType<typeof calculateCabinetLayout> | null = null;
+  let dimensionSummary = "";
+
+  if (LAYOUT_ENABLED_ITEMS.includes(item.id)) {
+    layoutResult = calculateCabinetLayout(
+      item.id,
+      instance.layout ?? "lurus",
+      len,
+      p2,
+      p3,
+      ht
+    );
+    measurement = layoutResult.effectiveMeasurement;
+    subtotal = Math.round(measurement * unitPrice);
+    if (item.id === "lemari_pakaian") {
+      if (instance.layout === "l_shape") {
+        dimensionSummary = len > 0 || p2 > 0 || ht > 0
+          ? `Shape L: Sisi 1: ${len}m, Sisi 2: ${p2}m, T: ${ht}m (${measurement} m²)`
+          : "Shape L: Belum diisi (0 m²)";
+      } else if (instance.layout === "u_shape") {
+        dimensionSummary = len > 0 || p2 > 0 || p3 > 0 || ht > 0
+          ? `Shape U: Sisi 1: ${len}m, Sisi 2: ${p2}m, Sisi 3: ${p3}m, T: ${ht}m (${measurement} m²)`
+          : "Shape U: Belum diisi (0 m²)";
+      } else {
+        dimensionSummary = len > 0 || ht > 0
+          ? `Lurus: P: ${len}m, T: ${ht}m (${measurement} m²)`
+          : "Lurus: Belum diisi (0 m²)";
+      }
+    } else {
+      if (instance.layout === "l_shape") {
+        dimensionSummary = len > 0 || p2 > 0
+          ? `Shape L: Sisi 1: ${len}m, Sisi 2: ${p2}m (${measurement} M1)`
+          : "Shape L: Belum diisi (0 M1)";
+      } else if (instance.layout === "u_shape") {
+        dimensionSummary = len > 0 || p2 > 0 || p3 > 0
+          ? `Shape U: Sisi 1: ${len}m, Sisi 2: ${p2}m, Sisi 3: ${p3}m (${measurement} M1)`
+          : "Shape U: Belum diisi (0 M1)";
+      } else {
+        dimensionSummary = len > 0
+          ? item.id === "cab_atas_full_plafond"
+            ? `Lurus: P: ${len}m (${measurement} M1)`
+            : `Lurus: P: ${len} Meter Lari (M1)`
+          : "Lurus: Belum diisi (0 M1)";
+      }
+    }
+  } else if (item.id === "meja_island") {
+    measurement = len;
+    subtotal = len > 0 ? Math.round((len / 0.6) * unitPrice) : 0;
+    dimensionSummary = len > 0
+      ? `Panjang: ${len}m (${Math.round((len / 0.6) * 10) / 10} M1)`
+      : "Belum diisi (0 M1)";
+  } else if (item.id === "lemari_bawah_tangga") {
+    measurement = Math.round(len * ht * 0.8 * 100) / 100;
+    subtotal = len > 0 && ht > 0 ? Math.round(len * ht * 0.8 * unitPrice) : 0;
+    dimensionSummary = len > 0 && ht > 0
+      ? `P: ${len}m, T: ${ht}m (${measurement} m²)`
+      : "Belum diisi (0 m²)";
+  } else if (selectedOption?.unit === "M1") {
+    measurement = len;
+    subtotal = len * unitPrice;
+    dimensionSummary = len > 0 ? `Panjang: ${len} Meter Lari (M1)` : "Belum diisi (0 M1)";
+  } else if (selectedOption?.unit === "M2") {
+    measurement = Math.round(len * ht * 100) / 100;
+    subtotal = measurement * unitPrice;
+    dimensionSummary = len > 0 && ht > 0
+      ? item.id === "dipan_ranjang"
+        ? `P: ${len}m, L: ${ht}m (${measurement} m²)`
+        : `P: ${len}m, T: ${ht}m (${measurement} m²)`
+      : "Belum diisi (0 m²)";
+  } else {
+    measurement = q;
+    subtotal = q * unitPrice;
+    dimensionSummary = q > 0 ? `Jumlah: ${q} QTY` : "Belum diisi (0 QTY)";
+  }
+
+  return {
+    selectedOption,
+    unitPrice,
+    subtotal,
+    measurement,
+    layoutResult,
+    dimensionSummary,
+  };
+}
+
+/** Ringkasan Visual Unit (Summary Box) */
+type UnitSummaryViewProps = {
   item: FurnitureItemConfig;
   region: Region;
-  state?: ItemState;
-  onToggle: () => void;
+  instance: ItemInstance;
+  instanceIndex: number;
+  totalInstances: number;
+  onEdit: () => void;
+  onRemove?: () => void;
+};
+
+function UnitSummaryView({
+  item,
+  region,
+  instance,
+  instanceIndex,
+  totalInstances,
+  onEdit,
+  onRemove,
+}: UnitSummaryViewProps) {
+  const calc = getInstanceCalculation(item, instance, region);
+  const isPrimary = instanceIndex === 0;
+
+  return (
+    <div className="rounded-xl border border-primary/40 bg-primary/5 hover:border-primary/60 p-3.5 sm:p-4 transition-all shadow-2xs">
+      <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold font-sans bg-primary text-primary-foreground shadow-2xs">
+            <Sparkles className="size-3" />
+            <span>
+              {item.name} #{instanceIndex + 1}
+            </span>
+          </span>
+          <span className="text-xs font-bold text-foreground">
+            {calc.selectedOption?.name}{" "}
+            <span className="text-muted-foreground font-medium">— {calc.selectedOption?.model}</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
+          <span className="text-xs sm:text-sm font-bold text-primary">
+            {calc.subtotal > 0 ? formatRupiah(calc.subtotal) : "Rp 0"}
+          </span>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-primary hover:bg-primary/10 border border-primary/25 transition-colors cursor-pointer"
+            title="Ubah spesifikasi atau ukuran unit ini"
+          >
+            <Pencil className="size-3" />
+            <span>Ubah</span>
+          </button>
+          {!isPrimary && onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="size-7 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 flex items-center justify-center transition-colors cursor-pointer"
+              title={`Hapus ${item.name} #${instanceIndex + 1}`}
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground gap-1.5 pt-1.5 border-t border-border/40">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="font-semibold text-foreground">Ukuran & Bentuk:</span>
+          <span className="font-bold text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/60">
+            {calc.dimensionSummary}
+          </span>
+        </div>
+        <div className="text-[11px] text-muted-foreground shrink-0">
+          Tarif: {formatRupiah(calc.unitPrice)} /{" "}
+          {calc.selectedOption?.unit === "M2"
+            ? item.id === "dipan_ranjang"
+              ? "M2 (P x L)"
+              : "M2 (P x T)"
+            : calc.selectedOption?.unit === "UNIT"
+            ? "QTY"
+            : calc.selectedOption?.unit}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Sub-Component: Unit Editor (Form Bahan, Layout & Dimensi) */
+type UnitEditorProps = {
+  item: FurnitureItemConfig;
+  region: Region;
+  instance: ItemInstance;
+  instanceIndex: number;
+  totalInstances: number;
   onSelectOption: (optId: string) => void;
   onUpdateDimension: (
     field: DimensionField,
@@ -1596,17 +2004,17 @@ type ItemCardProps = {
   onSetLayout?: (layout: KitchenLayoutType) => void;
 };
 
-function ItemCard({
+function UnitEditor({
   item,
   region,
-  state,
-  onToggle,
+  instance,
+  instanceIndex,
+  totalInstances,
   onSelectOption,
   onUpdateDimension,
   onSetDirectDimension,
   onSetLayout,
-}: ItemCardProps) {
-  const isEnabled = state?.enabled ?? false;
+}: UnitEditorProps) {
   const selectId = useId();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1634,45 +2042,10 @@ function ItemCard({
   }, [isDropdownOpen]);
 
   const selectedOption =
-    item.options.find((opt) => opt.id === state?.optionId) ?? item.options[0];
+    item.options.find((opt) => opt.id === instance.optionId) ?? item.options[0];
   const activeUnit = selectedOption?.unit ?? item.defaultUnit;
-  const unitPrice = selectedOption
-    ? region === "DK"
-      ? selectedOption.priceDK
-      : selectedOption.priceLK
-    : 0;
-
-  let subtotal = 0;
-  let layoutResult: ReturnType<typeof calculateCabinetLayout> | null = null;
-  if (state && selectedOption) {
-    const len = typeof state.length === "number" ? state.length : 0;
-    const ht = typeof state.height === "number" ? state.height : 0;
-    const q = typeof state.qty === "number" ? state.qty : 0;
-    const p2 = typeof state.length2 === "number" ? state.length2 : 0;
-    const p3 = typeof state.length3 === "number" ? state.length3 : 0;
-
-    if (LAYOUT_ENABLED_ITEMS.includes(item.id)) {
-      layoutResult = calculateCabinetLayout(
-        item.id,
-        state.layout ?? "lurus",
-        len,
-        p2,
-        p3,
-        ht
-      );
-      subtotal = Math.round(layoutResult.effectiveMeasurement * unitPrice);
-    } else if (item.id === "meja_island") {
-      subtotal = len > 0 ? Math.round((len / 0.6) * unitPrice) : 0;
-    } else if (item.id === "lemari_bawah_tangga") {
-      subtotal = len > 0 && ht > 0 ? Math.round(len * ht * 0.8 * unitPrice) : 0;
-    } else if (selectedOption.unit === "M1") {
-      subtotal = len * unitPrice;
-    } else if (selectedOption.unit === "M2") {
-      subtotal = len * ht * unitPrice;
-    } else {
-      subtotal = q * unitPrice;
-    }
-  }
+  const calc = getInstanceCalculation(item, instance, region);
+  const layoutResult = calc.layoutResult;
 
   const groupedOptions = useMemo(() => {
     const groups: Array<{ groupName: string; options: typeof item.options }> = [];
@@ -1688,11 +2061,1026 @@ function ItemCard({
   }, [item]);
 
   return (
+    <div className="space-y-3.5">
+      {/* Pilihan Layout Bentuk Khusus Kabinet Dapur & Lemari Pakaian */}
+      {LAYOUT_ENABLED_ITEMS.includes(item.id) && (
+        <div className="pb-3 border-b border-border/60">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-muted-foreground">
+              {item.category === "wardrobe" || item.id === "lemari_pakaian"
+                ? "Pilihan Layout Lemari Pakaian:"
+                : "Pilihan Layout Bentuk Dapur:"}
+            </span>
+            <span className="text-[11px] font-bold text-primary">
+              {instance?.layout === "l_shape"
+                ? "Bentuk Sudut L (Shape L)"
+                : instance?.layout === "u_shape"
+                  ? "Bentuk Keliling U (Shape U)"
+                  : "Bentuk Lurus (I-Line)"}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => onSetLayout?.("lurus")}
+              className={cn(
+                "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                (!instance?.layout || instance.layout === "lurus")
+                  ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <span>Lurus</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSetLayout?.("l_shape")}
+              className={cn(
+                "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                instance?.layout === "l_shape"
+                  ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <span>Shape L</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSetLayout?.("u_shape")}
+              className={cn(
+                "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                instance?.layout === "u_shape"
+                  ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <span>Shape U</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+        {/* Material & Model Selector */}
+        <div className={LAYOUT_ENABLED_ITEMS.includes(item.id) ? "sm:col-span-6" : "sm:col-span-7"}>
+          <div className="flex items-center justify-between mb-1.5 gap-2">
+            <label
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="block text-xs font-semibold text-muted-foreground cursor-pointer"
+            >
+              Pilihan Bahan Utama & Model:
+            </label>
+            {item.options.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+              >
+                <span>{item.options.length} pilihan bahan</span>
+                <ChevronDown className={cn("size-3 transition-transform duration-200", isDropdownOpen && "rotate-180")} />
+              </button>
+            )}
+          </div>
+
+          <div className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              id={selectId}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              aria-expanded={isDropdownOpen}
+              aria-haspopup="listbox"
+              className={cn(
+                "w-full text-left rounded-xl border bg-card px-3.5 py-2.5 text-foreground font-medium flex items-center justify-between gap-2 shadow-2xs transition-all cursor-pointer",
+                isDropdownOpen
+                  ? "border-primary ring-2 ring-primary/20 bg-card"
+                  : "border-border hover:border-primary/60 hover:bg-muted/40"
+              )}
+              title="Klik untuk memilih bahan dan model"
+            >
+              <div className="min-w-0 flex-1">
+                {selectedOption ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 leading-tight">
+                    <span className="font-semibold text-xs sm:text-sm truncate">
+                      {selectedOption.name}{" "}
+                      <span className="text-muted-foreground font-normal">— {selectedOption.model}</span>
+                    </span>
+                    <span className="text-[11px] sm:text-xs font-bold text-primary shrink-0 mt-0.5 sm:mt-0">
+                      ({formatRupiah(region === "DK" ? selectedOption.priceDK : selectedOption.priceLK)} / {selectedOption.unit === "M2" ? (item.id === "dipan_ranjang" ? "M2 (P x L)" : "M2 (P x T)") : selectedOption.unit === "UNIT" ? "QTY" : selectedOption.unit})
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Pilih bahan & model...</span>
+                )}
+              </div>
+              <ChevronDown
+                className={cn(
+                  "size-4 text-muted-foreground transition-transform duration-200 shrink-0",
+                  isDropdownOpen && "rotate-180 text-primary"
+                )}
+              />
+            </button>
+
+            {/* Custom Responsive Dropdown Menu */}
+            {isDropdownOpen && (
+              <div
+                role="listbox"
+                className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-72 sm:max-h-80 w-full overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl divide-y divide-border/40 focus:outline-none overscroll-contain"
+              >
+                {groupedOptions.map(({ groupName, options }) => {
+                  const showHeader = groupedOptions.length > 1;
+
+                  return (
+                    <div key={groupName} className="py-0.5">
+                      {showHeader && (
+                        <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/80 sticky top-0 backdrop-blur-md z-10 flex items-center justify-between border-b border-border/40 mb-0.5">
+                          <span>{groupName}</span>
+                          <span className="font-medium text-[10px] lowercase text-muted-foreground/70">
+                            {options.length} model
+                          </span>
+                        </div>
+                      )}
+
+                      {options.map((opt) => {
+                        const isSelected = opt.id === instance?.optionId;
+                        const price = region === "DK" ? opt.priceDK : opt.priceLK;
+
+                        return (
+                          <button
+                            type="button"
+                            role="option"
+                            key={opt.id}
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              onSelectOption(opt.id);
+                              setIsDropdownOpen(false);
+                            }}
+                            className={cn(
+                              "w-full text-left px-3.5 py-2.5 transition-colors flex items-center justify-between gap-3 cursor-pointer",
+                              isSelected
+                                ? "bg-primary/10 text-primary font-medium"
+                                : "hover:bg-muted text-foreground"
+                            )}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs sm:text-sm font-medium leading-snug">
+                                <span
+                                  className={
+                                    isSelected
+                                      ? "font-bold text-primary"
+                                      : "text-foreground font-semibold"
+                                  }
+                                >
+                                  {opt.model}
+                                </span>
+                                {!showHeader && (
+                                  <span className="text-muted-foreground font-normal text-[11px] sm:text-xs ml-1">
+                                    ({opt.name})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] sm:text-xs font-bold text-primary mt-0.5">
+                                {formatRupiah(price)}{" "}
+                                <span className="font-normal text-muted-foreground">
+                                  / {opt.unit === "M2" ? (item.id === "dipan_ranjang" ? "M2 (P x L)" : "M2 (P x T)") : opt.unit === "UNIT" ? "QTY" : opt.unit}
+                                </span>
+                              </div>
+                            </div>
+
+                            {isSelected && (
+                              <div className="size-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0">
+                                <Check className="size-3 stroke-[3]" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Dimension Inputs */}
+        <div className={LAYOUT_ENABLED_ITEMS.includes(item.id) ? "sm:col-span-6" : "sm:col-span-5"}>
+          {LAYOUT_ENABLED_ITEMS.includes(item.id) ? (
+            <div>
+              {item.id === "lemari_pakaian" ? (
+                /* Input Dimensi Khusus Lemari Pakaian (Unit M2: P x T) */
+                <div>
+                  {(!instance?.layout || instance.layout === "lurus") && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                        <span>Dimensi Luas (P x T):</span>
+                        <span className="text-primary font-bold">
+                          {typeof instance?.length === "number" &&
+                          typeof instance?.height === "number" &&
+                          instance.length > 0 &&
+                          instance.height > 0
+                            ? `${layoutResult?.effectiveMeasurement ?? 0} m² (${instance.length}m x ${instance.height}m)`
+                            : "0 m² (0m x 0m)"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Panjang / P (m)</div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("length", -0.5, 0)}
+                              className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                              title="Kurangi 0.5m"
+                            >
+                              <Minus className="size-3" />
+                            </button>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              placeholder="0"
+                              value={instance?.length ?? 0}
+                              onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                              onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length", 0); }}
+                              onChange={(e) =>
+                                onSetDirectDimension(
+                                  "length",
+                                  e.target.value === "" ? "" : parseFloat(e.target.value)
+                                )
+                              }
+                              className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("length", 0.5, 0)}
+                              className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                              title="Tambah 0.5m"
+                            >
+                              <Plus className="size-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("height", -0.1, 0)}
+                              className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                              title="Kurangi 0.1m"
+                            >
+                              <Minus className="size-3" />
+                            </button>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              placeholder="0"
+                              value={instance?.height ?? 0}
+                              onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                              onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("height", 0); }}
+                              onChange={(e) =>
+                                onSetDirectDimension(
+                                  "height",
+                                  e.target.value === "" ? "" : parseFloat(e.target.value)
+                                )
+                              }
+                              className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("height", 0.1, 0)}
+                              className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                              title="Tambah 0.1m"
+                            >
+                              <Plus className="size-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-1 flex items-center justify-between">
+                        <span>Rumus layout:</span>
+                        <span className="font-semibold text-primary">
+                          {layoutResult?.formulaLabel}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {instance?.layout === "l_shape" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                        <span>Luas Efektif:</span>
+                        <span className="text-primary font-bold">
+                          {layoutResult && layoutResult.effectiveMeasurement > 0
+                            ? `${layoutResult.effectiveMeasurement} m²`
+                            : "0 m²"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="0"
+                            value={instance?.length ?? 0}
+                            onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                            onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length", 0); }}
+                            onChange={(e) =>
+                              onSetDirectDimension(
+                                "length",
+                                e.target.value === "" ? "" : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="0"
+                            value={instance?.length2 ?? 0}
+                            onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                            onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length2", 0); }}
+                            onChange={(e) =>
+                              onSetDirectDimension(
+                                "length2",
+                                e.target.value === "" ? "" : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="0"
+                            value={instance?.height ?? 0}
+                            onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                            onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("height", 0); }}
+                            onChange={(e) =>
+                              onSetDirectDimension(
+                                "height",
+                                e.target.value === "" ? "" : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
+                        <div className="flex items-center justify-between">
+                          <span>Potongan sudut (0,6m):</span>
+                          <span className="font-semibold text-foreground">
+                            {layoutResult?.formulaDescription}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Rumus hitung:</span>
+                          <span className="font-semibold text-primary">
+                            {layoutResult?.formulaLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {instance?.layout === "u_shape" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                        <span>Luas Efektif:</span>
+                        <span className="text-primary font-bold">
+                          {layoutResult && layoutResult.effectiveMeasurement > 0
+                            ? `${layoutResult.effectiveMeasurement} m²`
+                            : "0 m²"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              placeholder="0"
+                              value={instance?.length ?? 0}
+                              onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                              onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length", 0); }}
+                              onChange={(e) =>
+                                onSetDirectDimension(
+                                  "length",
+                                  e.target.value === "" ? "" : parseFloat(e.target.value)
+                                )
+                              }
+                              className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("length", 0.5, 0)}
+                              className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                              title="Tambah 0.5m"
+                            >
+                              <Plus className="size-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              placeholder="0"
+                              value={instance?.length2 ?? 0}
+                              onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                              onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length2", 0); }}
+                              onChange={(e) =>
+                                onSetDirectDimension(
+                                  "length2",
+                                  e.target.value === "" ? "" : parseFloat(e.target.value)
+                                )
+                              }
+                              className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("length2", 0.5, 0)}
+                              className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                              title="Tambah 0.5m"
+                            >
+                              <Plus className="size-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 3 / P3 (m)</div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              placeholder="0"
+                              value={instance?.length3 ?? 0}
+                              onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                              onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length3", 0); }}
+                              onChange={(e) =>
+                                onSetDirectDimension(
+                                  "length3",
+                                  e.target.value === "" ? "" : parseFloat(e.target.value)
+                                )
+                              }
+                              className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("length3", 0.5, 0)}
+                              className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                              title="Tambah 0.5m"
+                            >
+                              <Plus className="size-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              placeholder="0"
+                              value={instance?.height ?? 0}
+                              onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                              onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("height", 0); }}
+                              onChange={(e) =>
+                                onSetDirectDimension(
+                                  "height",
+                                  e.target.value === "" ? "" : parseFloat(e.target.value)
+                                )
+                              }
+                              className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("height", 0.1, 0)}
+                              className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                              title="Tambah 0.1m"
+                            >
+                              <Plus className="size-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
+                        <div className="flex items-center justify-between">
+                          <span>Potongan 2 sudut:</span>
+                          <span className="font-semibold text-foreground">
+                            {layoutResult?.formulaDescription}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Rumus hitung:</span>
+                          <span className="font-semibold text-primary">
+                            {layoutResult?.formulaLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Input Dimensi Khusus Kabinet Dapur (Unit M1) */
+                <div>
+                  {(!instance?.layout || instance.layout === "lurus") && (
+                    <div>
+                      <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
+                        <span>Panjang Bentang (P):</span>
+                        <span className="text-primary font-bold">
+                          {instance?.length
+                            ? item.id === "cab_atas_full_plafond"
+                              ? `${instance.length} m (${instance.length}m x 2 = ${Math.round(instance.length * 2 * 10) / 10} M1)`
+                              : `${instance.length} Meter Lari (M1)`
+                            : "Belum diisi (0 M1)"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onUpdateDimension("length", -0.5, 0)}
+                          className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
+                          title="Kurangi 0.5 meter"
+                        >
+                          <Minus className="size-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          placeholder="0"
+                          value={instance?.length ?? 0}
+                          onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                          onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length", 0); }}
+                          onChange={(e) =>
+                            onSetDirectDimension(
+                              "length",
+                              e.target.value === "" ? "" : parseFloat(e.target.value)
+                            )
+                          }
+                          className="flex-1 text-center font-bold text-sm rounded-xl border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => onUpdateDimension("length", 0.5, 0)}
+                          className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
+                          title="Tambah 0.5 meter"
+                        >
+                          <Plus className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center justify-between">
+                        <span>Rumus layout:</span>
+                        <span className="font-semibold text-primary">
+                          {layoutResult?.formulaLabel}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {instance?.layout === "l_shape" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                        <span>Panjang Efektif:</span>
+                        <span className="text-primary font-bold">
+                          {layoutResult ? `${layoutResult.effectiveM1} M1` : "0 M1"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="0"
+                            value={instance?.length ?? 0}
+                            onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                            onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length", 0); }}
+                            onChange={(e) =>
+                              onSetDirectDimension(
+                                "length",
+                                e.target.value === "" ? "" : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="0"
+                            value={instance?.length2 ?? 0}
+                            onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                            onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length2", 0); }}
+                            onChange={(e) =>
+                              onSetDirectDimension(
+                                "length2",
+                                e.target.value === "" ? "" : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
+                        <div className="flex items-center justify-between">
+                          <span>Potongan sudut:</span>
+                          <span className="font-semibold text-foreground">
+                            {layoutResult?.formulaDescription}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Rumus hitung:</span>
+                          <span className="font-semibold text-primary">
+                            {layoutResult?.formulaLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {instance?.layout === "u_shape" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                        <span>Panjang Efektif:</span>
+                        <span className="text-primary font-bold">
+                          {layoutResult ? `${layoutResult.effectiveM1} M1` : "0 M1"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="0"
+                            value={instance?.length ?? 0}
+                            onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                            onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length", 0); }}
+                            onChange={(e) =>
+                              onSetDirectDimension(
+                                "length",
+                                e.target.value === "" ? "" : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="0"
+                            value={instance?.length2 ?? 0}
+                            onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                            onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length2", 0); }}
+                            onChange={(e) =>
+                              onSetDirectDimension(
+                                "length2",
+                                e.target.value === "" ? "" : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 3 / P3 (m)</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="0"
+                            value={instance?.length3 ?? 0}
+                            onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                            onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length3", 0); }}
+                            onChange={(e) =>
+                              onSetDirectDimension(
+                                "length3",
+                                e.target.value === "" ? "" : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
+                        <div className="flex items-center justify-between">
+                          <span>Potongan 2 sudut:</span>
+                          <span className="font-semibold text-foreground">
+                            {layoutResult?.formulaDescription}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Rumus hitung:</span>
+                          <span className="font-semibold text-primary">
+                            {layoutResult?.formulaLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : activeUnit === "M1" ? (
+            <div>
+              <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
+                <span>{item.id === "meja_island" ? "Panjang Meja:" : "Panjang Bentang:"}</span>
+                <span className="text-primary font-bold">
+                  {instance?.length
+                    ? item.id === "meja_island"
+                      ? `${instance.length} m (${instance.length} : 0,6)`
+                      : `${instance.length} Meter Lari (M1)`
+                    : "Belum diisi (0 M1)"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onUpdateDimension("length", -0.5, 0)}
+                  className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
+                  title="Kurangi 0.5 meter"
+                >
+                  <Minus className="size-3.5" />
+                </button>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  placeholder="0"
+                  value={instance?.length ?? 0}
+                  onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                  onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length", 0); }}
+                  onChange={(e) =>
+                    onSetDirectDimension(
+                      "length",
+                      e.target.value === "" ? "" : parseFloat(e.target.value)
+                    )
+                  }
+                  className="flex-1 text-center font-bold text-sm rounded-xl border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => onUpdateDimension("length", 0.5, 0)}
+                  className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
+                  title="Tambah 0.5 meter"
+                >
+                  <Plus className="size-3.5" />
+                </button>
+              </div>
+              {item.id === "meja_island" && (
+                <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center justify-between">
+                  <span>Rumus workshop:</span>
+                  <span className="font-semibold text-primary">
+                    (Panjang : 0,6) &times; Tarif
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : activeUnit === "M2" ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                <span>
+                  {item.id === "lemari_bawah_tangga"
+                    ? "Dimensi Luas Efektif (P x T x 0,8):"
+                    : item.id === "dipan_ranjang"
+                    ? "Dimensi Luas (P x L):"
+                    : "Dimensi Luas (P x T):"}
+                </span>
+                <span className="text-primary font-bold">
+                  {typeof instance?.length === "number" &&
+                  typeof instance?.height === "number" &&
+                  instance.length > 0 &&
+                  instance.height > 0
+                    ? item.id === "lemari_bawah_tangga"
+                      ? `${Math.round(instance.length * instance.height * 0.8 * 100) / 100} m² (${instance.length}m x ${instance.height}m x 0,8)`
+                      : `${Math.round(instance.length * instance.height * 100) / 100} m² (${instance.length}m x ${instance.height}m)`
+                    : "Belum diisi (0 m²)"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-0.5">Panjang / P (m)</div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      placeholder="0"
+                      value={instance?.length ?? 0}
+                      onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                      onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("length", 0); }}
+                      onChange={(e) =>
+                        onSetDirectDimension(
+                          "length",
+                          e.target.value === "" ? "" : parseFloat(e.target.value)
+                        )
+                      }
+                      className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-0.5">
+                    {item.id === "dipan_ranjang" ? "Lebar / L (m)" : "Tinggi / T (m)"}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      placeholder="0"
+                      value={instance?.height ?? 0}
+                      onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                      onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("height", 0); }}
+                      onChange={(e) =>
+                        onSetDirectDimension(
+                          "height",
+                          e.target.value === "" ? "" : parseFloat(e.target.value)
+                        )
+                      }
+                      className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-0.5">
+                <span>Rumus perhitungan:</span>
+                <span className="font-semibold text-primary">
+                  {item.id === "lemari_bawah_tangga"
+                    ? "Panjang (P) × Tinggi (T) × 0,8 × Tarif"
+                    : item.id === "dipan_ranjang"
+                    ? "Panjang (P) × Lebar (L) × Tarif"
+                    : "Panjang (P) × Tinggi (T) × Tarif"}
+                </span>
+              </div>
+            </div>
+          ) : activeUnit === "UNIT" ? (
+            <div>
+              <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
+                <span>Jumlah (QTY):</span>
+                <span className="text-primary font-bold">
+                  {instance?.qty ? `${instance.qty} QTY` : "Belum diisi (0 QTY)"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onUpdateDimension("qty", -1, 0)}
+                  className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
+                  title="Kurangi 1 unit"
+                >
+                  <Minus className="size-3.5" />
+                </button>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={instance?.qty ?? 0}
+                  onFocus={(e) => { if (e.target.value === "0") e.target.select(); }}
+                  onBlur={(e) => { if (e.target.value === "") onSetDirectDimension("qty", 0); }}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/[^0-9.,]/g, "");
+                    const sepMatch = val.match(/[.,]/);
+                    if (sepMatch && sepMatch.index !== undefined) {
+                      const before = val.slice(0, sepMatch.index);
+                      const sep = sepMatch[0];
+                      const after = val.slice(sepMatch.index + 1).replace(/[.,]/g, "");
+                      val = before + sep + after;
+                    }
+                    const parsed = parseQty(val);
+                    onSetDirectDimension(
+                      "qty",
+                      val === "" ? "" : parsed
+                    );
+                  }}
+                  className="flex-1 text-center font-bold text-sm rounded-xl border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => onUpdateDimension("qty", 1, 0)}
+                  className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
+                  title="Tambah 1 unit"
+                >
+                  <Plus className="size-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Individual Item Card Component (Single card hosting all unit instances) */
+type ItemCardProps = {
+  item: FurnitureItemConfig;
+  region: Region;
+  instances: ItemInstance[];
+  onToggle: () => void;
+  onSelectOption: (instanceId: string, optId: string) => void;
+  onUpdateDimension: (
+    instanceId: string,
+    field: DimensionField,
+    delta: number,
+    minVal?: number
+  ) => void;
+  onSetDirectDimension: (
+    instanceId: string,
+    field: DimensionField,
+    val: number | ""
+  ) => void;
+  onSetLayout?: (instanceId: string, layout: KitchenLayoutType) => void;
+  onAddInstance: () => void;
+  onRemoveInstance: (instanceId: string) => void;
+};
+
+function ItemCard({
+  item,
+  region,
+  instances,
+  onToggle,
+  onSelectOption,
+  onUpdateDimension,
+  onSetDirectDimension,
+  onSetLayout,
+  onAddInstance,
+  onRemoveInstance,
+}: ItemCardProps) {
+  const hasAnyEnabled = instances.some((inst) => inst.enabled);
+  const totalSubtotal = useMemo(() => {
+    return instances.reduce((acc, inst) => {
+      if (!inst.enabled) return acc;
+      const c = getInstanceCalculation(item, inst, region);
+      return acc + c.subtotal;
+    }, 0);
+  }, [instances, item, region]);
+
+  // Track editing state for each instance: default Unit 1 is summary if > 1 instance
+  const [editingMap, setEditingMap] = useState<Record<string, boolean>>({});
+
+  const primaryInstance = instances[0] || {
+    instanceId: `${item.id}_0`,
+    itemId: item.id,
+    enabled: false,
+    optionId: item.options[0]?.id ?? "",
+    length: 0,
+    height: 0,
+    qty: 0,
+    layout: "lurus",
+    length2: 0,
+    length3: 0,
+  };
+
+  // Disable tombol "+ Tambah Komponen" jika ada unit yang belum diisi ukurannya (subtotal <= 0)
+  const isAddDisabled = useMemo(() => {
+    if (instances.length === 0) return true;
+    return instances.some((inst) => {
+      const calc = getInstanceCalculation(item, inst, region);
+      return calc.subtotal <= 0;
+    });
+  }, [instances, item, region]);
+
+  // Unit 1 is in edit mode if instances <= 1 or explicitly marked true in editingMap
+  const isPrimaryEditing = instances.length <= 1 || Boolean(editingMap[primaryInstance.instanceId]);
+
+  const selectedPrimaryOption =
+    item.options.find((opt) => opt.id === primaryInstance.optionId) ?? item.options[0];
+  const primaryUnit = selectedPrimaryOption?.unit ?? item.defaultUnit;
+
+  return (
     <div
       className={cn(
         "rounded-2xl border transition-all duration-200",
-        isDropdownOpen && "relative z-30",
-        isEnabled
+        hasAnyEnabled
           ? "bg-card border-primary/40 shadow-xs ring-1 ring-primary/20"
           : "bg-card/70 border-border opacity-85 hover:opacity-100"
       )}
@@ -1703,7 +3091,7 @@ function ItemCard({
           <div className="pt-0.5 sm:pt-0">
             <input
               type="checkbox"
-              checked={isEnabled}
+              checked={hasAnyEnabled}
               onChange={onToggle}
               className="size-5 rounded-md border-border text-primary focus:ring-primary accent-primary cursor-pointer"
             />
@@ -1713,28 +3101,29 @@ function ItemCard({
               <span className="font-semibold text-sm sm:text-base text-foreground">
                 {item.name}
               </span>
+              {instances.length > 1 && (
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
+                  {instances.length} Unit
+                </span>
+              )}
               <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border">
                 {LAYOUT_ENABLED_ITEMS.includes(item.id)
-                  ? state?.layout === "l_shape"
-                    ? `Shape L: ${layoutResult?.formulaLabel ?? "Rumus L"}`
-                    : state?.layout === "u_shape"
-                      ? `Shape U: ${layoutResult?.formulaLabel ?? "Rumus U"}`
-                      : item.id === "cab_atas_full_plafond"
-                        ? "Rumus Khusus: (P x 2) x Tarif"
-                        : item.id === "lemari_pakaian"
-                          ? "Meter Persegi (M2 / P x T)"
-                          : "Meter Lari (M1 / Lurus)"
-                  : item.id === "meja_island"
-                    ? "Rumus Khusus: (P : 0,6) x Tarif"
+                  ? item.id === "lemari_pakaian"
+                    ? "Meter Persegi (M2 / P x T)"
                     : item.id === "cab_atas_full_plafond"
-                      ? "Rumus Khusus: (P x 2) x Tarif"
-                      : item.id === "lemari_bawah_tangga"
-                        ? "Rumus Khusus: P x T x 0,8 x Tarif"
-                        : activeUnit === "M1"
-                          ? "Meter Lari (M1)"
-                          : activeUnit === "M2"
-                            ? "Meter Persegi (M2 / P x T)"
-                            : "Jumlah (QTY)"}
+                    ? "Rumus Khusus: (P x 2) x Tarif"
+                    : "Meter Lari (M1 / Layout)"
+                  : item.id === "meja_island"
+                  ? "Rumus Khusus: (P : 0,6) x Tarif"
+                  : item.id === "lemari_bawah_tangga"
+                  ? "Rumus Khusus: P x T x 0,8 x Tarif"
+                  : primaryUnit === "M1"
+                  ? "Meter Lari (M1)"
+                  : primaryUnit === "M2"
+                  ? item.id === "dipan_ranjang"
+                    ? "Meter Persegi (M2 / P x L)"
+                    : "Meter Persegi (M2 / P x T)"
+                  : "Jumlah (QTY)"}
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
@@ -1743,886 +3132,239 @@ function ItemCard({
           </div>
         </label>
 
-        <div className="text-right shrink-0">
-          <div className="text-xs text-muted-foreground">Subtotal</div>
-          <div
-            className={cn(
-              "text-sm sm:text-base font-bold",
-              isEnabled ? "text-primary" : "text-muted-foreground line-through"
-            )}
-          >
-            {formatRupiah(subtotal)}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">Subtotal</div>
+            <div
+              className={cn(
+                "text-sm sm:text-base font-bold",
+                hasAnyEnabled && totalSubtotal > 0 ? "text-primary" : "text-muted-foreground"
+              )}
+            >
+              {hasAnyEnabled && totalSubtotal > 0 ? formatRupiah(totalSubtotal) : "Rp 0"}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Expanded Controls when Item is Enabled */}
-      {isEnabled && (
-        <div className="px-4 pb-5 pt-1 sm:px-5 border-t border-border/60 bg-muted/20 rounded-b-2xl">
-          {/* Pilihan Layout Bentuk Khusus Kabinet Dapur & Lemari Pakaian */}
-          {LAYOUT_ENABLED_ITEMS.includes(item.id) && (
-            <div className="pt-3 pb-3 border-b border-border/60 mb-3.5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {item.category === "wardrobe" || item.id === "lemari_pakaian"
-                    ? "Pilihan Layout Lemari Pakaian:"
-                    : "Pilihan Layout Bentuk Dapur:"}
-                </span>
-                <span className="text-[11px] font-bold text-primary">
-                  {state?.layout === "l_shape"
-                    ? "Bentuk Sudut L (Shape L)"
-                    : state?.layout === "u_shape"
-                      ? "Bentuk Keliling U (Shape U)"
-                      : "Bentuk Lurus (I-Line)"}
-                </span>
+      {hasAnyEnabled && (
+        <div className="px-4 pb-5 pt-3 sm:px-5 border-t border-border/60 bg-muted/20 rounded-b-2xl space-y-4">
+          {/* Scenario A: Single Instance */}
+          {instances.length <= 1 && (
+            <UnitEditor
+              item={item}
+              region={region}
+              instance={primaryInstance}
+              instanceIndex={0}
+              totalInstances={1}
+              onSelectOption={(optId) => onSelectOption(primaryInstance.instanceId, optId)}
+              onUpdateDimension={(field, delta, min) =>
+                onUpdateDimension(primaryInstance.instanceId, field, delta, min)
+              }
+              onSetDirectDimension={(field, val) =>
+                onSetDirectDimension(primaryInstance.instanceId, field, val)
+              }
+              onSetLayout={(layout) => onSetLayout?.(primaryInstance.instanceId, layout)}
+            />
+          )}
+
+          {/* Scenario B: Multiple Instances */}
+          {instances.length > 1 && (
+            <div className="space-y-3.5">
+              {/* 1. Komponen Utama (Unit #1) */}
+              <div>
+                {isPrimaryEditing ? (
+                  <div className="rounded-xl border border-primary/40 bg-card p-3.5 sm:p-4 shadow-2xs">
+                    <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-primary/20">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground shadow-2xs">
+                          <Sparkles className="size-3" />
+                          <span>{item.name} #1</span>
+                        </span>
+                        <span className="text-xs font-bold text-primary">
+                          Subtotal:{" "}
+                          {getInstanceCalculation(item, primaryInstance, region).subtotal > 0
+                            ? formatRupiah(
+                                getInstanceCalculation(item, primaryInstance, region).subtotal
+                              )
+                            : "Rp 0"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingMap((prev) => ({
+                              ...prev,
+                              [primaryInstance.instanceId]: false,
+                            }))
+                          }
+                          className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted transition-colors cursor-pointer"
+                          title="Ringkas tampilan unit ini"
+                        >
+                          Ringkas
+                        </button>
+                      </div>
+                    </div>
+
+                    <UnitEditor
+                      item={item}
+                      region={region}
+                      instance={primaryInstance}
+                      instanceIndex={0}
+                      totalInstances={instances.length}
+                      onSelectOption={(optId) => onSelectOption(primaryInstance.instanceId, optId)}
+                      onUpdateDimension={(field, delta, min) =>
+                        onUpdateDimension(primaryInstance.instanceId, field, delta, min)
+                      }
+                      onSetDirectDimension={(field, val) =>
+                        onSetDirectDimension(primaryInstance.instanceId, field, val)
+                      }
+                      onSetLayout={(layout) => onSetLayout?.(primaryInstance.instanceId, layout)}
+                    />
+                  </div>
+                ) : (
+                  <UnitSummaryView
+                    item={item}
+                    region={region}
+                    instance={primaryInstance}
+                    instanceIndex={0}
+                    totalInstances={instances.length}
+                    onEdit={() =>
+                      setEditingMap((prev) => ({
+                        ...prev,
+                        [primaryInstance.instanceId]: true,
+                      }))
+                    }
+                  />
+                )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => onSetLayout?.("lurus")}
-                  className={cn(
-                    "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
-                    (!state?.layout || state.layout === "lurus")
-                      ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
-                      : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  <span>Lurus</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSetLayout?.("l_shape")}
-                  className={cn(
-                    "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
-                    state?.layout === "l_shape"
-                      ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
-                      : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  <span>Shape L</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSetLayout?.("u_shape")}
-                  className={cn(
-                    "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
-                    state?.layout === "u_shape"
-                      ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
-                      : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  <span>Shape U</span>
-                </button>
-              </div>
+
+              {/* 2. Unit Tambahan (Unit #2, #3, ...) */}
+              {instances.slice(1).map((inst, idx) => {
+                const isLatest = idx === instances.slice(1).length - 1;
+                const isEditing =
+                  editingMap[inst.instanceId] !== undefined
+                    ? editingMap[inst.instanceId]
+                    : isLatest;
+                const unitCalc = getInstanceCalculation(item, inst, region);
+
+                return isEditing ? (
+                  <div
+                    key={inst.instanceId}
+                    className="rounded-xl border border-primary/40 bg-card p-3.5 sm:p-4 shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-primary/20">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground shadow-2xs">
+                          <Sparkles className="size-3" />
+                          <span>
+                            {item.name} #{idx + 2}
+                          </span>
+                        </span>
+                        <span className="text-xs font-bold text-primary">
+                          Subtotal: {unitCalc.subtotal > 0 ? formatRupiah(unitCalc.subtotal) : "Rp 0"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingMap((prev) => ({
+                              ...prev,
+                              [inst.instanceId]: false,
+                            }))
+                          }
+                          className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted transition-colors cursor-pointer"
+                          title="Ringkas tampilan unit ini"
+                        >
+                          Ringkas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveInstance(inst.instanceId)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-500/10 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                          title={`Hapus ${item.name} #${idx + 2}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                          <span className="hidden sm:inline">Hapus Unit</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <UnitEditor
+                      item={item}
+                      region={region}
+                      instance={inst}
+                      instanceIndex={idx + 1}
+                      totalInstances={instances.length}
+                      onSelectOption={(optId) => onSelectOption(inst.instanceId, optId)}
+                      onUpdateDimension={(field, delta, min) =>
+                        onUpdateDimension(inst.instanceId, field, delta, min)
+                      }
+                      onSetDirectDimension={(field, val) =>
+                        onSetDirectDimension(inst.instanceId, field, val)
+                      }
+                      onSetLayout={(layout) => onSetLayout?.(inst.instanceId, layout)}
+                    />
+                  </div>
+                ) : (
+                  <UnitSummaryView
+                    key={inst.instanceId}
+                    item={item}
+                    region={region}
+                    instance={inst}
+                    instanceIndex={idx + 1}
+                    totalInstances={instances.length}
+                    onEdit={() =>
+                      setEditingMap((prev) => ({
+                        ...prev,
+                        [inst.instanceId]: true,
+                      }))
+                    }
+                    onRemove={() => onRemoveInstance(inst.instanceId)}
+                  />
+                );
+              })}
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center pt-2">
-            {/* Material & Model Selector */}
-            <div className={LAYOUT_ENABLED_ITEMS.includes(item.id) ? "sm:col-span-6" : "sm:col-span-7"}>
-              <div className="flex items-center justify-between mb-1.5 gap-2">
-                <label
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="block text-xs font-semibold text-muted-foreground cursor-pointer"
-                >
-                  Pilihan Bahan Utama & Model:
-                </label>
-                {item.options.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
-                  >
-                    <span>{item.options.length} pilihan bahan</span>
-                    <ChevronDown className={cn("size-3 transition-transform duration-200", isDropdownOpen && "rotate-180")} />
-                  </button>
-                )}
+          {/* Action Footer: Tambah Komponen & Info Ringkas */}
+          <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
+            <button
+              type="button"
+              disabled={isAddDisabled}
+              onClick={() => {
+                if (isAddDisabled) return;
+                setEditingMap({});
+                onAddInstance();
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all shadow-2xs",
+                isAddDisabled
+                  ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed select-none"
+                  : "border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary hover:shadow-xs cursor-pointer"
+              )}
+              title={
+                isAddDisabled
+                  ? `Isi ukuran ${item.name} terlebih dahulu untuk menambah komponen baru`
+                  : `Tambah unit lain untuk ${item.name}`
+              }
+            >
+              <Plus className="size-3.5" />
+              <span>Tambah Komponen</span>
+            </button>
+
+            {instances.length > 1 && (
+              <div className="text-xs text-muted-foreground font-medium flex items-center gap-2">
+                <span>Total: <strong className="text-foreground">{instances.length} Unit</strong></span>
+                <span>•</span>
+                <span>Subtotal: <strong className="text-primary">{formatRupiah(totalSubtotal)}</strong></span>
               </div>
-
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  type="button"
-                  id={selectId}
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  aria-expanded={isDropdownOpen}
-                  aria-haspopup="listbox"
-                  className={cn(
-                    "w-full text-left rounded-xl border bg-card px-3.5 py-2.5 text-foreground font-medium flex items-center justify-between gap-2 shadow-2xs transition-all cursor-pointer",
-                    isDropdownOpen
-                      ? "border-primary ring-2 ring-primary/20 bg-card"
-                      : "border-border hover:border-primary/60 hover:bg-muted/40"
-                  )}
-                  title="Klik untuk memilih bahan dan model"
-                >
-                  <div className="min-w-0 flex-1">
-                    {selectedOption ? (
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 leading-tight">
-                        <span className="font-semibold text-xs sm:text-sm truncate">
-                          {selectedOption.name}{" "}
-                          <span className="text-muted-foreground font-normal">— {selectedOption.model}</span>
-                        </span>
-                        <span className="text-[11px] sm:text-xs font-bold text-primary shrink-0 mt-0.5 sm:mt-0">
-                          ({formatRupiah(region === "DK" ? selectedOption.priceDK : selectedOption.priceLK)} / {selectedOption.unit === "M2" ? "M2 (P x T)" : selectedOption.unit === "UNIT" ? "QTY" : selectedOption.unit})
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Pilih bahan & model...</span>
-                    )}
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      "size-4 text-muted-foreground transition-transform duration-200 shrink-0",
-                      isDropdownOpen && "rotate-180 text-primary"
-                    )}
-                  />
-                </button>
-
-                {/* Custom Responsive Dropdown Menu */}
-                {isDropdownOpen && (
-                  <div
-                    role="listbox"
-                    className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-72 sm:max-h-80 w-full overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl divide-y divide-border/40 focus:outline-none overscroll-contain"
-                  >
-                    {groupedOptions.map(({ groupName, options }) => {
-                      const showHeader = groupedOptions.length > 1;
-
-                      return (
-                        <div key={groupName} className="py-0.5">
-                          {showHeader && (
-                            <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/80 sticky top-0 backdrop-blur-md z-10 flex items-center justify-between border-b border-border/40 mb-0.5">
-                              <span>{groupName}</span>
-                              <span className="font-medium text-[10px] lowercase text-muted-foreground/70">
-                                {options.length} model
-                              </span>
-                            </div>
-                          )}
-
-                          {options.map((opt) => {
-                            const isSelected = opt.id === state?.optionId;
-                            const price = region === "DK" ? opt.priceDK : opt.priceLK;
-
-                            return (
-                              <button
-                                type="button"
-                                role="option"
-                                key={opt.id}
-                                aria-selected={isSelected}
-                                onClick={() => {
-                                  onSelectOption(opt.id);
-                                  setIsDropdownOpen(false);
-                                }}
-                                className={cn(
-                                  "w-full text-left px-3.5 py-2.5 transition-colors flex items-center justify-between gap-3 cursor-pointer",
-                                  isSelected
-                                    ? "bg-primary/10 text-primary font-medium"
-                                    : "hover:bg-muted text-foreground"
-                                )}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-xs sm:text-sm font-medium leading-snug">
-                                    <span
-                                      className={
-                                        isSelected
-                                          ? "font-bold text-primary"
-                                          : "text-foreground font-semibold"
-                                      }
-                                    >
-                                      {opt.model}
-                                    </span>
-                                    {!showHeader && (
-                                      <span className="text-muted-foreground font-normal text-[11px] sm:text-xs ml-1">
-                                        ({opt.name})
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-[11px] sm:text-xs font-bold text-primary mt-0.5">
-                                    {formatRupiah(price)}{" "}
-                                    <span className="font-normal text-muted-foreground">
-                                      / {opt.unit === "M2" ? "M2 (P x T)" : opt.unit === "UNIT" ? "QTY" : opt.unit}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {isSelected && (
-                                  <div className="size-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0">
-                                    <Check className="size-3 stroke-[3]" />
-                                  </div>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Dimension Inputs */}
-            <div className={LAYOUT_ENABLED_ITEMS.includes(item.id) ? "sm:col-span-6" : "sm:col-span-5"}>
-              {LAYOUT_ENABLED_ITEMS.includes(item.id) ? (
-                <div>
-                  {item.id === "lemari_pakaian" ? (
-                    /* Input Dimensi Khusus Lemari Pakaian (Unit M2: P x T) */
-                    <div>
-                      {(!state?.layout || state.layout === "lurus") && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                            <span>Dimensi Luas (P x T):</span>
-                            <span className="text-primary font-bold">
-                              {typeof state?.length === "number" &&
-                              typeof state?.height === "number" &&
-                              state.length > 0 &&
-                              state.height > 0
-                                ? `${layoutResult?.effectiveMeasurement ?? 0} m² (${state.length}m x ${state.height}m)`
-                                : "Belum diisi (0 m²)"}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Panjang / P (m)</div>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => onUpdateDimension("length", -0.5, 0.5)}
-                                  className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
-                                  title="Kurangi 0.5m"
-                                >
-                                  <Minus className="size-3" />
-                                </button>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  placeholder="0"
-                                  value={state?.length ?? ""}
-                                  onChange={(e) =>
-                                    onSetDirectDimension(
-                                      "length",
-                                      e.target.value === "" ? "" : parseFloat(e.target.value)
-                                    )
-                                  }
-                                  className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => onUpdateDimension("length", 0.5, 0.5)}
-                                  className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
-                                  title="Tambah 0.5m"
-                                >
-                                  <Plus className="size-3" />
-                                </button>
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => onUpdateDimension("height", -0.1, 0.5)}
-                                  className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
-                                  title="Kurangi 0.1m"
-                                >
-                                  <Minus className="size-3" />
-                                </button>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  placeholder="0"
-                                  value={state?.height ?? ""}
-                                  onChange={(e) =>
-                                    onSetDirectDimension(
-                                      "height",
-                                      e.target.value === "" ? "" : parseFloat(e.target.value)
-                                    )
-                                  }
-                                  className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => onUpdateDimension("height", 0.1, 0.5)}
-                                  className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
-                                  title="Tambah 0.1m"
-                                >
-                                  <Plus className="size-3" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-1 flex items-center justify-between">
-                            <span>Rumus layout:</span>
-                            <span className="font-semibold text-primary">
-                              {layoutResult?.formulaLabel}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {state?.layout === "l_shape" && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                            <span>Luas Efektif:</span>
-                            <span className="text-primary font-bold">
-                              {layoutResult ? `${layoutResult.effectiveMeasurement} m²` : "0 m²"}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length2 ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length2",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.height ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "height",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
-                            <div className="flex items-center justify-between">
-                              <span>Potongan sudut:</span>
-                              <span className="font-semibold text-foreground">
-                                {layoutResult?.formulaDescription}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span>Rumus hitung:</span>
-                              <span className="font-semibold text-primary">
-                                {layoutResult?.formulaLabel}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {state?.layout === "u_shape" && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                            <span>Luas Efektif:</span>
-                            <span className="text-primary font-bold">
-                              {layoutResult ? `${layoutResult.effectiveMeasurement} m²` : "0 m²"}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length2 ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length2",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 3 / P3 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length3 ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length3",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between gap-3 pt-0.5">
-                            <span className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
-                              Tinggi Lemari (T):
-                            </span>
-                            <div className="flex items-center gap-1 flex-1 max-w-[180px]">
-                              <button
-                                type="button"
-                                onClick={() => onUpdateDimension("height", -0.1, 0.5)}
-                                className="size-7 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
-                                title="Kurangi 0.1 meter"
-                              >
-                                <Minus className="size-3" />
-                              </button>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.height ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "height",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1 text-foreground focus:border-primary focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => onUpdateDimension("height", 0.1, 0.5)}
-                                className="size-7 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
-                                title="Tambah 0.1 meter"
-                              >
-                                <Plus className="size-3" />
-                              </button>
-                              <span className="text-xs font-semibold text-muted-foreground pl-0.5">m</span>
-                            </div>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
-                            <div className="flex items-center justify-between">
-                              <span>Potongan 2 sudut:</span>
-                              <span className="font-semibold text-foreground">
-                                {layoutResult?.formulaDescription}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span>Rumus hitung:</span>
-                              <span className="font-semibold text-primary">
-                                {layoutResult?.formulaLabel}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* Input Dimensi Khusus Kabinet Dapur (Unit M1) */
-                    <div>
-                      {(!state?.layout || state.layout === "lurus") && (
-                        <div>
-                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
-                            <span>Panjang Bentang (P):</span>
-                            <span className="text-primary font-bold">
-                              {state?.length
-                                ? item.id === "cab_atas_full_plafond"
-                                  ? `${state.length} m (${state.length}m x 2 = ${Math.round(state.length * 2 * 10) / 10} M1)`
-                                  : `${state.length} Meter Lari (M1)`
-                                : "Belum diisi (0 M1)"}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => onUpdateDimension("length", -0.5, 0.5)}
-                              className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
-                              title="Kurangi 0.5 meter"
-                            >
-                              <Minus className="size-3.5" />
-                            </button>
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              placeholder="0"
-                              value={state?.length ?? ""}
-                              onChange={(e) =>
-                                onSetDirectDimension(
-                                  "length",
-                                  e.target.value === "" ? "" : parseFloat(e.target.value)
-                                )
-                              }
-                              className="flex-1 text-center font-bold text-sm rounded-xl border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => onUpdateDimension("length", 0.5, 0.5)}
-                              className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
-                              title="Tambah 0.5 meter"
-                            >
-                              <Plus className="size-3.5" />
-                            </button>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center justify-between">
-                            <span>Rumus layout:</span>
-                            <span className="font-semibold text-primary">
-                              {layoutResult?.formulaLabel}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {state?.layout === "l_shape" && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                            <span>Panjang Efektif:</span>
-                            <span className="text-primary font-bold">
-                              {layoutResult ? `${layoutResult.effectiveM1} M1` : "0 M1"}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length2 ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length2",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
-                            <div className="flex items-center justify-between">
-                              <span>Potongan sudut:</span>
-                              <span className="font-semibold text-foreground">
-                                {layoutResult?.formulaDescription}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span>Rumus hitung:</span>
-                              <span className="font-semibold text-primary">
-                                {layoutResult?.formulaLabel}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {state?.layout === "u_shape" && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                            <span>Panjang Efektif:</span>
-                            <span className="text-primary font-bold">
-                              {layoutResult ? `${layoutResult.effectiveM1} M1` : "0 M1"}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length2 ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length2",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 3 / P3 (m)</div>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                placeholder="0"
-                                value={state?.length3 ?? ""}
-                                onChange={(e) =>
-                                  onSetDirectDimension(
-                                    "length3",
-                                    e.target.value === "" ? "" : parseFloat(e.target.value)
-                                  )
-                                }
-                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
-                            <div className="flex items-center justify-between">
-                              <span>Potongan 2 sudut:</span>
-                              <span className="font-semibold text-foreground">
-                                {layoutResult?.formulaDescription}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span>Rumus hitung:</span>
-                              <span className="font-semibold text-primary">
-                                {layoutResult?.formulaLabel}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : activeUnit === "M1" ? (
-                <div>
-                  <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
-                    <span>{item.id === "meja_island" ? "Panjang Meja:" : "Panjang Bentang:"}</span>
-                    <span className="text-primary font-bold">
-                      {state?.length
-                        ? item.id === "meja_island"
-                          ? `${state.length} m (${state.length} : 0,6)`
-                          : `${state.length} Meter Lari (M1)`
-                        : "Belum diisi (0 M1)"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onUpdateDimension("length", -0.5, 0.5)}
-                      className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
-                      title="Kurangi 0.5 meter"
-                    >
-                      <Minus className="size-3.5" />
-                    </button>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      placeholder="0"
-                      value={state?.length ?? ""}
-                      onChange={(e) =>
-                        onSetDirectDimension(
-                          "length",
-                          e.target.value === "" ? "" : parseFloat(e.target.value)
-                        )
-                      }
-                      className="flex-1 text-center font-bold text-sm rounded-xl border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onUpdateDimension("length", 0.5, 0.5)}
-                      className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
-                      title="Tambah 0.5 meter"
-                    >
-                      <Plus className="size-3.5" />
-                    </button>
-                  </div>
-                  {item.id === "meja_island" && (
-                    <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center justify-between">
-                      <span>Rumus workshop:</span>
-                      <span className="font-semibold text-primary">
-                        (Panjang : 0,6) &times; Tarif
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ) : activeUnit === "M2" ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                    <span>
-                      {item.id === "lemari_bawah_tangga"
-                        ? "Dimensi Luas Efektif (P x T x 0,8):"
-                        : "Dimensi Luas (P x T):"}
-                    </span>
-                    <span className="text-primary font-bold">
-                      {typeof state?.length === "number" &&
-                      typeof state?.height === "number" &&
-                      state.length > 0 &&
-                      state.height > 0
-                        ? item.id === "lemari_bawah_tangga"
-                          ? `${Math.round(state.length * state.height * 0.8 * 100) / 100} m² (${state.length}m x ${state.height}m x 0,8)`
-                          : `${Math.round(state.length * state.height * 100) / 100} m² (${state.length}m x ${state.height}m)`
-                        : "Belum diisi (0 m²)"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <div className="text-[11px] text-muted-foreground mb-0.5">Panjang / P (m)</div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          placeholder="0"
-                          value={state?.length ?? ""}
-                          onChange={(e) =>
-                            onSetDirectDimension(
-                              "length",
-                              e.target.value === "" ? "" : parseFloat(e.target.value)
-                            )
-                          }
-                          className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          placeholder="0"
-                          value={state?.height ?? ""}
-                          onChange={(e) =>
-                            onSetDirectDimension(
-                              "height",
-                              e.target.value === "" ? "" : parseFloat(e.target.value)
-                            )
-                          }
-                          className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-0.5">
-                    <span>Rumus perhitungan:</span>
-                    <span className="font-semibold text-primary">
-                      {item.id === "lemari_bawah_tangga"
-                        ? "Panjang (P) × Tinggi (T) × 0,8 × Tarif"
-                        : "Panjang (P) × Tinggi (T) × Tarif"}
-                    </span>
-                  </div>
-                </div>
-              ) : activeUnit === "UNIT" ? (
-                <div>
-                  <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
-                    <span>Jumlah (QTY):</span>
-                    <span className="text-primary font-bold">
-                      {state?.qty ? `${state.qty} QTY` : "Belum diisi (0 QTY)"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onUpdateDimension("qty", -1, 1)}
-                      className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
-                      title="Kurangi 1 unit"
-                    >
-                      <Minus className="size-3.5" />
-                    </button>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={state?.qty ?? ""}
-                      onChange={(e) => {
-                        let val = e.target.value.replace(/[^0-9.,]/g, "");
-                        const sepMatch = val.match(/[.,]/);
-                        if (sepMatch && sepMatch.index !== undefined) {
-                          const before = val.slice(0, sepMatch.index);
-                          const sep = sepMatch[0];
-                          const after = val.slice(sepMatch.index + 1).replace(/[.,]/g, "");
-                          val = before + sep + after;
-                        }
-                        const parsed = parseQty(val);
-                        onSetDirectDimension(
-                          "qty",
-                          val === "" ? "" : parsed
-                        );
-                      }}
-                      className="flex-1 text-center font-bold text-sm rounded-xl border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onUpdateDimension("qty", 1, 1)}
-                      className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
-                      title="Tambah 1 unit"
-                    >
-                      <Plus className="size-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            )}
           </div>
         </div>
       )}
