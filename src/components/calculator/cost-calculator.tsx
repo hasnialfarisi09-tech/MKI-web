@@ -55,11 +55,51 @@ type ItemState = {
 
 type CalculatorState = Record<string, ItemState>;
 
+type CategoryKey = "kitchen" | "wardrobe" | "living" | "bedroom";
+
 type CustomAccessory = {
   id: string;
   name: string;
   price: number | "";
-  qty: number | "";
+  qty: string | number;
+};
+
+function parseQty(val: number | string | ""): number {
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  if (!val || typeof val !== "string") return 0;
+  const normalized = val.trim().replace(",", ".");
+  const parsed = parseFloat(normalized);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+const CATEGORY_CUSTOM_CONFIG: Record<
+  CategoryKey,
+  { title: string; desc: string; placeholder: string; defaultItemName: string }
+> = {
+  kitchen: {
+    title: "Aksesoris & Fitting Tambahan Kitchen Set",
+    desc: "Tuliskan nama aksesoris, harga satuan, dan jumlah (qty) sesuai kebutuhan dapur Anda.",
+    placeholder: "Contoh: Rak Piring Tarik / Lampu LED / Rel Gas",
+    defaultItemName: "Aksesoris Kitchen Set",
+  },
+  wardrobe: {
+    title: "Aksesoris & Fitting Tambahan Lemari & Partisi",
+    desc: "Tuliskan nama aksesoris, fitting khusus, harga satuan, dan jumlah (qty) sesuai kebutuhan lemari Anda.",
+    placeholder: "Contoh: Gantungan Celana Tarik / Rak Sepatu / Cermin Sliding",
+    defaultItemName: "Aksesoris Lemari",
+  },
+  living: {
+    title: "Aksesoris & Fitting Tambahan Backdrop TV & Wallpanel",
+    desc: "Tuliskan nama aksesoris, lampu, fitting, harga satuan, dan jumlah (qty) sesuai kebutuhan ruang keluarga Anda.",
+    placeholder: "Contoh: Stop Kontak Pop-Up / Lampu LED Strip / Ambalan Kaca",
+    defaultItemName: "Aksesoris Backdrop TV",
+  },
+  bedroom: {
+    title: "Aksesoris & Fitting Tambahan Kamar Tidur",
+    desc: "Tuliskan nama aksesoris, headboard/lampu, harga satuan, dan jumlah (qty) sesuai kebutuhan kamar Anda.",
+    placeholder: "Contoh: Lampu Baca Fleksibel / Busa Headboard Custom / Rel Hidrolik",
+    defaultItemName: "Aksesoris Kamar Tidur",
+  },
 };
 
 const ALL_ITEMS: FurnitureItemConfig[] = [
@@ -204,13 +244,23 @@ export function CostCalculator() {
   // State: Kitchen Electronics Accordion (opened by default)
   const [showElectronics, setShowElectronics] = useState(false);
 
-  // State: Kitchen Accessories Accordion (opened by default)
-  const [showAccessories, setShowAccessories] = useState(false);
+  // State: Accessories Accordion per Category (opened by default)
+  const [showAccessories, setShowAccessories] = useState<Record<CategoryKey, boolean>>({
+    kitchen: true,
+    wardrobe: true,
+    living: true,
+    bedroom: true,
+  });
 
-  // State: Dynamic Custom Accessories
-  const [customAccessories, setCustomAccessories] = useState<CustomAccessory[]>([
-    { id: "custom_acc_1", name: "", price: "", qty: "" },
-  ]);
+  // State: Dynamic Custom Accessories per Category
+  const [customAccessories, setCustomAccessories] = useState<
+    Record<CategoryKey, CustomAccessory[]>
+  >({
+    kitchen: [{ id: "custom_acc_kitchen_1", name: "", price: "", qty: "" }],
+    wardrobe: [{ id: "custom_acc_wardrobe_1", name: "", price: "", qty: "" }],
+    living: [{ id: "custom_acc_living_1", name: "", price: "", qty: "" }],
+    bedroom: [{ id: "custom_acc_bedroom_1", name: "", price: "", qty: "" }],
+  });
 
   // State: Export loading status
   const [isExporting, setIsExporting] = useState<"jpg" | "pdf" | null>(null);
@@ -321,9 +371,12 @@ export function CostCalculator() {
   // Reset entire calculator to initial state
   const handleReset = () => {
     setItemsState(buildInitialState());
-    setCustomAccessories([
-      { id: "custom_acc_1", name: "", price: "", qty: "" },
-    ]);
+    setCustomAccessories({
+      kitchen: [{ id: "custom_acc_kitchen_1", name: "", price: "", qty: "" }],
+      wardrobe: [{ id: "custom_acc_wardrobe_1", name: "", price: "", qty: "" }],
+      living: [{ id: "custom_acc_living_1", name: "", price: "", qty: "" }],
+      bedroom: [{ id: "custom_acc_bedroom_1", name: "", price: "", qty: "" }],
+    });
   };
 
   // Compute Grand Total, Total M1, Total M2, and Active Breakdown
@@ -398,30 +451,32 @@ export function CostCalculator() {
       });
     }
 
-    // 2. Process custom accessories
-    for (const acc of customAccessories) {
-      const p = typeof acc.price === "number" ? acc.price : 0;
-      const q = typeof acc.qty === "number" ? acc.qty : 0;
-      if (acc.name.trim() !== "" && p > 0 && q > 0) {
-        const subtotal = p * q;
-        grandTotal += subtotal;
-        activeCount += 1;
-        activeBreakdown.push({
-          item: {
-            id: acc.id,
-            name: acc.name.trim(),
-            category: "accessories",
-            defaultUnit: "UNIT",
-            description: "Aksesoris & Fitting Tambahan",
-            options: [],
-          },
-          optionName: "Kustom",
-          modelName: `${q} unit @ ${formatRupiah(p)}`,
-          unitPrice: p,
-          unit: "UNIT",
-          measurement: q,
-          subtotal,
-        });
+    // 2. Process custom accessories across all categories
+    for (const cat of Object.keys(customAccessories) as CategoryKey[]) {
+      for (const acc of customAccessories[cat]) {
+        const p = typeof acc.price === "number" ? acc.price : 0;
+        const q = parseQty(acc.qty);
+        if (acc.name.trim() !== "" && p > 0 && q > 0) {
+          const subtotal = Math.round(p * q);
+          grandTotal += subtotal;
+          activeCount += 1;
+          activeBreakdown.push({
+            item: {
+              id: acc.id,
+              name: `${acc.name.trim()} (${CATEGORY_CUSTOM_CONFIG[cat].defaultItemName})`,
+              category: "accessories",
+              defaultUnit: "UNIT",
+              description: `Aksesoris Kustom - ${CATEGORY_CUSTOM_CONFIG[cat].title}`,
+              options: [],
+            },
+            optionName: "Kustom",
+            modelName: `${q} unit @ ${formatRupiah(p)}`,
+            unitPrice: p,
+            unit: "UNIT",
+            measurement: q,
+            subtotal,
+          });
+        }
       }
     }
 
@@ -484,7 +539,7 @@ export function CostCalculator() {
 
   // Compute selected count per category
   const categoryCounts = useMemo(() => {
-    const counts: Record<"kitchen" | "wardrobe" | "living" | "bedroom", number> = {
+    const counts: Record<CategoryKey, number> = {
       kitchen: 0,
       wardrobe: 0,
       living: 0,
@@ -497,15 +552,6 @@ export function CostCalculator() {
     for (const item of ELECTRONIC_ITEMS) {
       if (itemsState[item.id]?.enabled) counts.kitchen += 1;
     }
-    const validCustomCount = customAccessories.filter(
-      (a) =>
-        a.name.trim() !== "" &&
-        typeof a.price === "number" &&
-        a.price > 0 &&
-        typeof a.qty === "number" &&
-        a.qty > 0
-    ).length;
-    counts.kitchen += validCustomCount;
     for (const item of OTHER_CATEGORIES) {
       if (itemsState[item.id]?.enabled) {
         if (item.category === "wardrobe") counts.wardrobe += 1;
@@ -514,33 +560,54 @@ export function CostCalculator() {
       }
     }
 
+    // Include valid custom accessories per category
+    for (const cat of Object.keys(customAccessories) as CategoryKey[]) {
+      const validCustomCount = customAccessories[cat].filter(
+        (a) =>
+          a.name.trim() !== "" &&
+          typeof a.price === "number" &&
+          a.price > 0 &&
+          parseQty(a.qty) > 0
+      ).length;
+      counts[cat] += validCustomCount;
+    }
+
     return counts;
   }, [itemsState, customAccessories]);
 
-  const addCustomAccessory = () => {
-    setCustomAccessories((prev) => [
+  const addCustomAccessory = (cat: CategoryKey) => {
+    setCustomAccessories((prev) => ({
       ...prev,
-      { id: `custom_acc_${Date.now()}`, name: "", price: "", qty: "" },
-    ]);
+      [cat]: [
+        ...prev[cat],
+        { id: `custom_acc_${cat}_${Date.now()}`, name: "", price: "", qty: "" },
+      ],
+    }));
   };
 
-  const removeCustomAccessory = (id: string) => {
+  const removeCustomAccessory = (cat: CategoryKey, id: string) => {
     setCustomAccessories((prev) => {
-      const filtered = prev.filter((acc) => acc.id !== id);
-      return filtered.length === 0
-        ? [{ id: `custom_acc_${Date.now()}`, name: "", price: "", qty: "" }]
-        : filtered;
+      const filtered = prev[cat].filter((acc) => acc.id !== id);
+      return {
+        ...prev,
+        [cat]:
+          filtered.length === 0
+            ? [{ id: `custom_acc_${cat}_${Date.now()}`, name: "", price: "", qty: "" }]
+            : filtered,
+      };
     });
   };
 
   const updateCustomAccessory = (
+    cat: CategoryKey,
     id: string,
     field: "name" | "price" | "qty",
     val: string | number
   ) => {
-    setCustomAccessories((prev) =>
-      prev.map((acc) => (acc.id === id ? { ...acc, [field]: val } : acc))
-    );
+    setCustomAccessories((prev) => ({
+      ...prev,
+      [cat]: prev[cat].map((acc) => (acc.id === id ? { ...acc, [field]: val } : acc)),
+    }));
   };
 
   const handleDownload = async (format: "jpg" | "pdf") => {
@@ -796,179 +863,193 @@ export function CostCalculator() {
             </div>
           )}
 
-          {/* Kitchen Accessories Accordion (Custom Inputs) */}
-          {activeCategory === "kitchen" && (
-            <div className="mt-4 rounded-2xl border border-border bg-card relative z-10 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowAccessories((prev) => !prev)}
-                className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-muted/40 transition-colors cursor-pointer"
-              >
-                <div>
-                  <h4 className="text-base font-semibold text-foreground flex items-center gap-2">
-                    <span>Aksesoris & Fitting Tambahan Kitchen Set</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      (Input Kustom)
-                    </span>
-                  </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Tuliskan nama aksesoris, harga satuan, dan jumlah (qty) sesuai kebutuhan dapur Anda.
-                  </p>
-                </div>
-                <ChevronDown
-                  className={cn(
-                    "size-5 text-muted-foreground transition-transform duration-200 shrink-0",
-                    showAccessories ? "rotate-180 text-primary" : ""
-                  )}
-                />
-              </button>
+          {/* Custom Accessories Accordion (Available in ALL Categories) */}
+          <div className="mt-4 rounded-2xl border border-border bg-card relative z-10 overflow-hidden shadow-xs">
+            <button
+              type="button"
+              onClick={() =>
+                setShowAccessories((prev) => ({
+                  ...prev,
+                  [activeCategory]: !prev[activeCategory],
+                }))
+              }
+              className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-muted/40 transition-colors cursor-pointer"
+            >
+              <div>
+                <h4 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <span>{CATEGORY_CUSTOM_CONFIG[activeCategory].title}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    (Input Kustom)
+                  </span>
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {CATEGORY_CUSTOM_CONFIG[activeCategory].desc}
+                </p>
+              </div>
+              <ChevronDown
+                className={cn(
+                  "size-5 text-muted-foreground transition-transform duration-200 shrink-0",
+                  showAccessories[activeCategory] ? "rotate-180 text-primary" : ""
+                )}
+              />
+            </button>
 
-              {showAccessories && (
-                <div className="p-4 sm:p-6 border-t border-border space-y-4 bg-background">
-                  <div className="space-y-3">
-                    {customAccessories.map((acc, index) => {
-                      const p = typeof acc.price === "number" ? acc.price : 0;
-                      const q = typeof acc.qty === "number" ? acc.qty : 0;
-                      const sub = p * q;
+            {showAccessories[activeCategory] && (
+              <div className="p-4 sm:p-6 border-t border-border space-y-4 bg-background">
+                <div className="space-y-3">
+                  {customAccessories[activeCategory].map((acc, index) => {
+                    const p = typeof acc.price === "number" ? acc.price : 0;
+                    const q = parseQty(acc.qty);
+                    const sub = Math.round(p * q);
 
-                      return (
-                        <div
-                          key={acc.id}
-                          className="rounded-xl border border-border bg-card p-3.5 sm:p-4 shadow-2xs transition-all hover:border-primary/40"
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-2.5">
-                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                              <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
-                                {index + 1}
-                              </span>
-                              <span>Item Aksesoris #{index + 1}</span>
+                    return (
+                      <div
+                        key={acc.id}
+                        className="rounded-xl border border-border bg-card p-3.5 sm:p-4 shadow-2xs transition-all hover:border-primary/40"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+                              {index + 1}
                             </span>
+                            <span>Item Aksesoris #{index + 1}</span>
+                          </span>
 
-                            <div className="flex items-center gap-3">
-                              {sub > 0 && (
-                                <span className="text-xs font-bold text-primary">
-                                  Subtotal: {formatRupiah(sub)}
-                                </span>
-                              )}
-                              {customAccessories.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeCustomAccessory(acc.id)}
-                                  className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-500/10 cursor-pointer"
-                                  title="Hapus baris aksesoris ini"
-                                >
-                                  <Trash2 className="size-4" />
-                                </button>
-                              )}
-                            </div>
+                          <div className="flex items-center gap-3">
+                            {sub > 0 && (
+                              <span className="text-xs font-bold text-primary">
+                                Subtotal: {formatRupiah(sub)}
+                              </span>
+                            )}
+                            {customAccessories[activeCategory].length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeCustomAccessory(activeCategory, acc.id)}
+                                className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-500/10 cursor-pointer"
+                                title="Hapus baris aksesoris ini"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                          {/* Nama Item */}
+                          <div className="sm:col-span-6">
+                            <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                              Nama Item Aksesoris:
+                            </label>
+                            <input
+                              type="text"
+                              placeholder={CATEGORY_CUSTOM_CONFIG[activeCategory].placeholder}
+                              value={acc.name}
+                              onChange={(e) =>
+                                updateCustomAccessory(activeCategory, acc.id, "name", e.target.value)
+                              }
+                              className="w-full text-xs sm:text-sm font-medium rounded-xl border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground/60"
+                            />
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                            {/* Nama Item */}
-                            <div className="sm:col-span-6">
-                              <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                                Nama Item Aksesoris:
-                              </label>
+                          {/* Harga Satuan */}
+                          <div className="sm:col-span-3">
+                            <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                              Harga Satuan (Rp):
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={acc.price === "" ? "" : acc.price}
+                              onChange={(e) =>
+                                updateCustomAccessory(
+                                  activeCategory,
+                                  acc.id,
+                                  "price",
+                                  e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value))
+                                )
+                              }
+                              className="w-full text-xs sm:text-sm font-bold text-center rounded-xl border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
+                            />
+                          </div>
+
+                          {/* Qty (Supports comma & decimal like 2.5) */}
+                          <div className="sm:col-span-3">
+                            <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                              Jumlah (Qty):
+                            </label>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const current = parseQty(acc.qty);
+                                  const next = Math.max(0, Math.round((current - 1) * 10) / 10);
+                                  updateCustomAccessory(
+                                    activeCategory,
+                                    acc.id,
+                                    "qty",
+                                    next === 0 ? "" : next
+                                  );
+                                }}
+                                className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                                title="Kurangi 1"
+                              >
+                                <Minus className="size-3.5" />
+                              </button>
                               <input
                                 type="text"
-                                placeholder="Contoh: Rak Piring Tarik / Lampu LED / Rel Gas"
-                                value={acc.name}
-                                onChange={(e) =>
-                                  updateCustomAccessory(acc.id, "name", e.target.value)
-                                }
-                                className="w-full text-xs sm:text-sm font-medium rounded-xl border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground/60"
-                              />
-                            </div>
-
-                            {/* Harga Satuan */}
-                            <div className="sm:col-span-3">
-                              <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                                Harga Satuan (Rp):
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
+                                inputMode="decimal"
                                 placeholder="0"
-                                value={acc.price === "" ? "" : acc.price}
-                                onChange={(e) =>
-                                  updateCustomAccessory(
-                                    acc.id,
-                                    "price",
-                                    e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value))
-                                  )
-                                }
-                                className="w-full text-xs sm:text-sm font-bold text-center rounded-xl border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
-                              />
-                            </div>
-
-                            {/* Qty */}
-                            <div className="sm:col-span-3">
-                              <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                                Jumlah (Qty):
-                              </label>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const current = typeof acc.qty === "number" ? acc.qty : 0;
-                                    const next = Math.max(0, current - 1);
-                                    updateCustomAccessory(acc.id, "qty", next === 0 ? "" : next);
-                                  }}
-                                  className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
-                                  title="Kurangi 1"
-                                >
-                                  <Minus className="size-3.5" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  placeholder="0"
-                                  value={acc.qty === "" ? "" : acc.qty}
-                                  onChange={(e) =>
-                                    updateCustomAccessory(
-                                      acc.id,
-                                      "qty",
-                                      e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value, 10))
-                                    )
+                                value={acc.qty}
+                                onChange={(e) => {
+                                  let val = e.target.value.replace(/[^0-9.,]/g, "");
+                                  const sepMatch = val.match(/[.,]/);
+                                  if (sepMatch && sepMatch.index !== undefined) {
+                                    const before = val.slice(0, sepMatch.index);
+                                    const sep = sepMatch[0];
+                                    const after = val.slice(sepMatch.index + 1).replace(/[.,]/g, "");
+                                    val = before + sep + after;
                                   }
-                                  className="w-full text-center font-bold text-xs sm:text-sm rounded-xl border border-border bg-background py-2 text-foreground focus:border-primary focus:outline-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const current = typeof acc.qty === "number" ? acc.qty : 0;
-                                    updateCustomAccessory(acc.id, "qty", current + 1);
-                                  }}
-                                  className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
-                                  title="Tambah 1"
-                                >
-                                  <Plus className="size-3.5" />
-                                </button>
-                              </div>
+                                  updateCustomAccessory(activeCategory, acc.id, "qty", val);
+                                }}
+                                className="w-full text-center font-bold text-xs sm:text-sm rounded-xl border border-border bg-background py-2 text-foreground focus:border-primary focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const current = parseQty(acc.qty);
+                                  const next = Math.round((current + 1) * 10) / 10;
+                                  updateCustomAccessory(activeCategory, acc.id, "qty", next);
+                                }}
+                                className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                                title="Tambah 1"
+                              >
+                                <Plus className="size-3.5" />
+                              </button>
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="pt-1 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={addCustomAccessory}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <Plus className="size-3.5" />
-                      <span>Tambah Baris Aksesoris</span>
-                    </button>
-                    <span className="text-[11px] text-muted-foreground">
-                      *Bisa isi nama aksesoris, tarif, & qty bebas
-                    </span>
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-          )}
+
+                <div className="pt-1 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => addCustomAccessory(activeCategory)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <Plus className="size-3.5" />
+                    <span>Tambah Baris Aksesoris</span>
+                  </button>
+                  <span className="text-[11px] text-muted-foreground">
+                    *Bisa isi nama aksesoris, tarif, & qty bebas (bisa desimal/koma)
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Educational Notes / Panduan Ukur */}
           <div className="rounded-2xl bg-card border border-border p-5 sm:p-6 text-xs sm:text-sm text-muted-foreground space-y-3">
@@ -1621,16 +1702,25 @@ function ItemCard({
                       <Minus className="size-3.5" />
                     </button>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="0"
                       value={state?.qty ?? ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/[^0-9.,]/g, "");
+                        const sepMatch = val.match(/[.,]/);
+                        if (sepMatch && sepMatch.index !== undefined) {
+                          const before = val.slice(0, sepMatch.index);
+                          const sep = sepMatch[0];
+                          const after = val.slice(sepMatch.index + 1).replace(/[.,]/g, "");
+                          val = before + sep + after;
+                        }
+                        const parsed = parseQty(val);
                         onSetDirectDimension(
                           "qty",
-                          e.target.value === "" ? "" : parseInt(e.target.value, 10)
-                        )
-                      }
+                          val === "" ? "" : parsed
+                        );
+                      }}
                       className="flex-1 text-center font-bold text-sm rounded-xl border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
                     />
                     <button
