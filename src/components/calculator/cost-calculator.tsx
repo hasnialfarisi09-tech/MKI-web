@@ -338,6 +338,11 @@ export function CostCalculator() {
           ? (targetConfig?.defaultHeight ?? 2.0)
           : current?.height ?? "";
 
+      const newQty =
+        newOpt?.unit === "UNIT" && (!current?.qty || current.qty === 0)
+          ? (targetConfig?.defaultQty ?? 1)
+          : current?.qty ?? "";
+
       return {
         ...prev,
         [itemId]: {
@@ -345,6 +350,7 @@ export function CostCalculator() {
           optionId,
           length: newLength,
           height: newHeight,
+          qty: newQty,
         },
       };
     });
@@ -522,7 +528,7 @@ export function CostCalculator() {
               ? `${b.measurement} m1`
               : b.unit === "M2"
                 ? `${b.measurement} m²`
-                : `${b.measurement} unit`;
+                : `${b.measurement} QTY`;
       return `${idx + 1}. ${b.item.name}\n   - Bahan: ${b.optionName} (${b.modelName})\n   - Ukuran: ${dimStr} x ${formatRupiah(b.unitPrice)} = ${formatRupiah(b.subtotal)}`;
     });
 
@@ -1174,7 +1180,7 @@ export function CostCalculator() {
                             <>
                               {item.unit === "M1" && `${item.measurement} m1`}
                               {item.unit === "M2" && `${item.measurement} m²`}
-                              {item.unit === "UNIT" && `${item.measurement} unit`}
+                              {item.unit === "UNIT" && `${item.measurement} QTY`}
                               {" x "}
                               {formatRupiah(item.unitPrice)}
                             </>
@@ -1413,7 +1419,7 @@ function ItemCard({
                       ? "Meter Lari (M1)"
                       : activeUnit === "M2"
                         ? "Meter Persegi (M2 / P x T)"
-                        : "Per Unit"}
+                        : "Jumlah (QTY)"}
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
@@ -1483,7 +1489,7 @@ function ItemCard({
                           <span className="text-muted-foreground font-normal">— {selectedOption.model}</span>
                         </span>
                         <span className="text-[11px] sm:text-xs font-bold text-primary shrink-0 mt-0.5 sm:mt-0">
-                          ({formatRupiah(region === "DK" ? selectedOption.priceDK : selectedOption.priceLK)} / {selectedOption.unit === "M2" ? "M2 (P x T)" : selectedOption.unit})
+                          ({formatRupiah(region === "DK" ? selectedOption.priceDK : selectedOption.priceLK)} / {selectedOption.unit === "M2" ? "M2 (P x T)" : selectedOption.unit === "UNIT" ? "QTY" : selectedOption.unit})
                         </span>
                       </div>
                     ) : (
@@ -1559,7 +1565,7 @@ function ItemCard({
                                   <div className="text-[11px] sm:text-xs font-bold text-primary mt-0.5">
                                     {formatRupiah(price)}{" "}
                                     <span className="font-normal text-muted-foreground">
-                                      / {opt.unit === "M2" ? "M2 (P x T)" : opt.unit}
+                                      / {opt.unit === "M2" ? "M2 (P x T)" : opt.unit === "UNIT" ? "QTY" : opt.unit}
                                     </span>
                                   </div>
                                 </div>
@@ -1710,9 +1716,9 @@ function ItemCard({
               {activeUnit === "UNIT" && (
                 <div>
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
-                    <span>Jumlah / Qty:</span>
+                    <span>Jumlah (QTY):</span>
                     <span className="text-primary font-bold">
-                      {state?.qty ? `${state.qty} Unit` : "Belum diisi (0 Unit)"}
+                      {state?.qty ? `${state.qty} QTY` : "Belum diisi (0 QTY)"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

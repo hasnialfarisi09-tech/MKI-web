@@ -213,7 +213,7 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
           ? `${row.measurement} m1`
           : row.unit === "M2"
             ? `${row.measurement} m²`
-            : `${row.measurement} unit`;
+            : `${row.measurement} QTY`;
       ctx.fillText(dimStr, colVol, currentY + 34);
 
       // Unit Price
