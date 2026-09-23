@@ -4,6 +4,9 @@ export type SimulationExportData = {
   cityName: string;
   provinceName: string;
   region: "DK" | "LK";
+  accountName?: string;
+  clientName?: string;
+  clientAddress?: string;
   grandTotal: number;
   totalM1: number;
   totalM2: number;
@@ -35,9 +38,14 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   const padding = 60;
   const contentWidth = width - padding * 2;
 
+  const hasAccountName = Boolean(data.accountName && data.accountName.trim());
+  const hasClientName = Boolean(data.clientName && data.clientName.trim());
+  const hasClientAddress = Boolean(data.clientAddress && data.clientAddress.trim());
+  const hasClientInfo = hasClientName || hasClientAddress;
+
   // Calculate dynamic height based on rows
   const headerHeight = 250;
-  const metaHeight = 110;
+  const metaHeight = hasClientInfo ? 180 : 110;
   const tableHeaderHeight = 50;
   const rowHeight = 72;
   const rowsHeight = Math.max(1, data.breakdown.length) * rowHeight;
@@ -70,16 +78,27 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
 
   let currentY = padding + 10;
 
-  // ==================== HEADER (WHITE LABEL) ====================
-  // Document Title
+  // ==================== HEADER (IDENTITAS H1 / NAMA AKUN) ====================
+  // H1 Title: Nama Akun jika diisi, atau default judul estimasi
+  const h1Title = hasAccountName
+    ? data.accountName!.trim().toUpperCase()
+    : "ESTIMASI BIAYA FURNITURE & INTERIOR";
+
+  const h1Subtitle = hasAccountName
+    ? "ESTIMASI BIAYA FURNITURE & INTERIOR CUSTOM"
+    : "SIMULASI PERKIRAAN BIAYA TRANSPARAN & TERSTANDARISASI";
+
   ctx.fillStyle = "#1C1917";
-  ctx.font = "bold 30px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("ESTIMASI BIAYA FURNITURE & INTERIOR", padding, currentY + 28);
+  ctx.font =
+    h1Title.length > 32
+      ? "bold 24px 'Segoe UI', Roboto, sans-serif"
+      : "bold 30px 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText(h1Title, padding, currentY + 28);
 
   // Subtitle
   ctx.fillStyle = "#E5571F";
-  ctx.font = "600 14px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("SIMULASI PERKIRAAN BIAYA TRANSPARAN & TERSTANDARISASI", padding, currentY + 52);
+  ctx.font = "600 13px 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText(h1Subtitle, padding, currentY + 52);
 
   // Right-aligned specification details (Neutral, no company brand)
   ctx.fillStyle = "#57534E";
@@ -100,7 +119,7 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   ctx.lineTo(width - padding, currentY);
   ctx.stroke();
 
-  currentY += 30;
+  currentY += 28;
 
   // ==================== DOCUMENT TITLE & METADATA ====================
   ctx.fillStyle = "#1C1917";
@@ -115,27 +134,75 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
     year: "numeric",
   }).format(today);
 
-  ctx.fillStyle = "#78716C";
-  ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText(`Dibuat pada: ${dateFormatted}`, padding, currentY + 32);
-
-  // Location Badge Box (Right-aligned)
   const regionLabel = data.region === "DK" ? "Dalam Kota (DK)" : "Luar Kota (LK)";
   const locationText = `Wilayah: ${data.cityName}, ${data.provinceName} (${regionLabel})`;
 
-  ctx.fillStyle = "#F5F3EF";
-  const badgeWidth = ctx.measureText(locationText).width + 30;
-  ctx.beginPath();
-  ctx.roundRect(width - padding - badgeWidth, currentY - 5, badgeWidth, 38, 8);
-  ctx.fill();
+  if (hasClientInfo) {
+    // Client & Project Information Box
+    const boxY = currentY + 32;
+    const boxHeight = 84;
+    ctx.fillStyle = "#FAF8F5";
+    ctx.beginPath();
+    ctx.roundRect(padding, boxY, contentWidth, boxHeight, 10);
+    ctx.fill();
+    ctx.strokeStyle = "#E7E5E4";
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
-  ctx.fillStyle = "#E5571F";
-  ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
-  ctx.textAlign = "right";
-  ctx.fillText(locationText, width - padding - 15, currentY + 19);
-  ctx.textAlign = "left";
+    // Left Column: Client Name & Address
+    ctx.fillStyle = "#78716C";
+    ctx.font = "bold 11px 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText("NAMA KLIEN:", padding + 20, boxY + 28);
+    ctx.fillText("ALAMAT KLIEN:", padding + 20, boxY + 58);
 
-  currentY += 75;
+    ctx.fillStyle = "#1C1917";
+    ctx.font = "bold 14px 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText(data.clientName?.trim() || "-", padding + 130, boxY + 28);
+
+    ctx.fillStyle = "#44403C";
+    ctx.font = "500 13px 'Segoe UI', Roboto, sans-serif";
+    const rawAddress = data.clientAddress?.trim() || "-";
+    const displayAddress =
+      rawAddress.length > 55 ? `${rawAddress.slice(0, 52)}...` : rawAddress;
+    ctx.fillText(displayAddress, padding + 130, boxY + 58);
+
+    // Right Column: Location & Date
+    const rightColX = padding + 620;
+    ctx.fillStyle = "#78716C";
+    ctx.font = "bold 11px 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText("WILAYAH:", rightColX, boxY + 28);
+    ctx.fillText("TANGGAL:", rightColX, boxY + 58);
+
+    ctx.fillStyle = "#E5571F";
+    ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText(locationText.replace("Wilayah: ", ""), rightColX + 85, boxY + 28);
+
+    ctx.fillStyle = "#57534E";
+    ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText(dateFormatted, rightColX + 85, boxY + 58);
+
+    currentY += 140;
+  } else {
+    // Compact metadata when no client info
+    ctx.fillStyle = "#78716C";
+    ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText(`Dibuat pada: ${dateFormatted}`, padding, currentY + 32);
+
+    // Location Badge Box (Right-aligned)
+    ctx.fillStyle = "#F5F3EF";
+    const badgeWidth = ctx.measureText(locationText).width + 30;
+    ctx.beginPath();
+    ctx.roundRect(width - padding - badgeWidth, currentY - 5, badgeWidth, 38, 8);
+    ctx.fill();
+
+    ctx.fillStyle = "#E5571F";
+    ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(locationText, width - padding - 15, currentY + 19);
+    ctx.textAlign = "left";
+
+    currentY += 75;
+  }
 
   // ==================== TABLE HEADER ====================
   ctx.fillStyle = "#FAF8F5";
@@ -347,9 +414,14 @@ export async function exportSimulationAsJpg(
         }
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
+        const safeClient = data.clientName?.trim()
+          ? `-${data.clientName.trim().replace(/[^a-zA-Z0-9_-]/g, "_")}`
+          : data.accountName?.trim()
+          ? `-${data.accountName.trim().replace(/[^a-zA-Z0-9_-]/g, "_")}`
+          : "";
         const safeCity = data.cityName.replace(/\s+/g, "-");
         a.href = url;
-        a.download = `Estimasi-Biaya-Interior-${safeCity}.jpg`;
+        a.download = `Estimasi-Biaya${safeClient}-${safeCity}.jpg`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -381,6 +453,11 @@ export async function exportSimulationAsPdf(
   const imgData = canvas.toDataURL("image/jpeg", 0.95);
   pdf.addImage(imgData, "JPEG", 0, 0, canvas.width / 2, canvas.height / 2);
 
+  const safeClient = data.clientName?.trim()
+    ? `-${data.clientName.trim().replace(/[^a-zA-Z0-9_-]/g, "_")}`
+    : data.accountName?.trim()
+    ? `-${data.accountName.trim().replace(/[^a-zA-Z0-9_-]/g, "_")}`
+    : "";
   const safeCity = data.cityName.replace(/\s+/g, "-");
-  pdf.save(`Estimasi-Biaya-Interior-${safeCity}.pdf`);
+  pdf.save(`Estimasi-Biaya${safeClient}-${safeCity}.pdf`);
 }

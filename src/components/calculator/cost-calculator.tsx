@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Bed,
+  Building2,
   Check,
   ChevronDown,
   Download,
@@ -21,6 +22,7 @@ import {
   Sparkles,
   Trash2,
   Tv,
+  User,
   UtensilsCrossed,
   MessageCircle,
 } from "lucide-react";
@@ -229,6 +231,11 @@ function SimpleDropdown({
 }
 
 export function CostCalculator() {
+  // State: Identity & Client info (initialized to empty text)
+  const [accountName, setAccountName] = useState<string>("");
+  const [clientName, setClientName] = useState<string>("");
+  const [clientAddress, setClientAddress] = useState<string>("");
+
   // State: Location selection
   const [selectedProvinceId, setSelectedProvinceId] = useState<string>("jabar");
   const [selectedCityId, setSelectedCityId] = useState<string>("kota-bandung");
@@ -401,6 +408,9 @@ export function CostCalculator() {
       living: [{ id: "custom_acc_living_1", name: "", price: "", qty: "" }],
       bedroom: [{ id: "custom_acc_bedroom_1", name: "", price: "", qty: "" }],
     });
+    setAccountName("");
+    setClientName("");
+    setClientAddress("");
   };
 
   // Compute Grand Total, Total M1, Total M2, and Active Breakdown
@@ -535,6 +545,9 @@ export function CostCalculator() {
     const lines = [
       "Halo Tim Workshop Interior,",
       "",
+      ...(accountName.trim() ? [`• Identitas Akun: ${accountName.trim()}`] : []),
+      ...(clientName.trim() ? [`• Nama Klien: ${clientName.trim()}`] : []),
+      ...(clientAddress.trim() ? [`• Alamat Klien: ${clientAddress.trim()}`] : []),
       "Saya telah mencoba simulasi kalkulator estimasi biaya interior dengan rincian berikut:",
       `• Lokasi Pemasangan: ${selectedCity.name}, ${selectedProvince.name}`,
       `• Total Komponen: ${calculationSummary.activeCount} item`,
@@ -552,7 +565,14 @@ export function CostCalculator() {
     const phone = normalizePhoneNumber(company.phone);
     const text = encodeURIComponent(lines.join("\n"));
     return `https://wa.me/${phone}?text=${text}`;
-  }, [selectedCity, selectedProvince, calculationSummary]);
+  }, [
+    selectedCity,
+    selectedProvince,
+    calculationSummary,
+    accountName,
+    clientName,
+    clientAddress,
+  ]);
 
   const activeCategoryItems = useMemo(() => {
     if (activeCategory === "kitchen") {
@@ -642,6 +662,9 @@ export function CostCalculator() {
         cityName: selectedCity.name,
         provinceName: selectedProvince.name,
         region,
+        accountName: accountName.trim() || undefined,
+        clientName: clientName.trim() || undefined,
+        clientAddress: clientAddress.trim() || undefined,
         grandTotal: calculationSummary.grandTotal,
         totalM1: calculationSummary.totalM1,
         totalM2: calculationSummary.totalM2,
@@ -675,53 +698,124 @@ export function CostCalculator() {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
       {/* Header Panel & Location Picker */}
       <div className="rounded-3xl bg-card border border-border p-6 sm:p-8 lg:p-10 mb-8 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="flex-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider mb-3">
-              <Sparkles className="size-3.5" />
-              Kalkulator Biaya Custom Transparan
+        {/* Top Header Intro */}
+        <div className="max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider mb-3">
+            <Sparkles className="size-3.5" />
+            Kalkulator Biaya Custom Transparan
+          </div>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold text-foreground tracking-tight">
+            Simulasi Estimasi Biaya Furniture
+          </h2>
+          <p className="mt-2 text-sm sm:text-base text-muted-foreground leading-relaxed">
+            Pilih lokasi pemasangan Anda dan kombinasikan komponen furniture yang Anda butuhkan.
+            Tarif dihitung otomatis secara transparan sesuai area jangkauan workshop.
+          </p>
+        </div>
+
+        {/* Input Controls: Data Akun & Klien + Area Pemasangan */}
+        <div className="mt-6 pt-6 border-t border-border grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          {/* Box 1: Data Akun & Klien */}
+          <div className="lg:col-span-7 bg-background rounded-2xl p-4 sm:p-5 border border-border shadow-2xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Building2 className="size-4 text-primary" />
+                  <span>Identitas Akun & Klien:</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  Tampil di Ekspor JPG / PDF
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Nama Akun */}
+                <div className="sm:col-span-2">
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-1">
+                    <Building2 className="size-3 text-primary" />
+                    <span>Nama Akun</span>
+                    <span className="text-primary font-bold">(Identitas H1 di Ekspor)</span>:
+                  </label>
+                  <input
+                    type="text"
+                    value={accountName}
+                    onChange={(e) => setAccountName(e.target.value)}
+                    placeholder="Masukkan nama akun..."
+                    className="w-full h-9 px-3 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                  />
+                </div>
+
+                {/* Nama Client */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-1">
+                    <User className="size-3 text-primary" />
+                    <span>Nama Client:</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    placeholder="Masukkan nama client..."
+                    className="w-full h-9 px-3 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                  />
+                </div>
+
+                {/* Alamat Client */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-1">
+                    <MapPin className="size-3 text-primary" />
+                    <span>Alamat Client:</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={clientAddress}
+                    onChange={(e) => setClientAddress(e.target.value)}
+                    placeholder="Masukkan alamat client..."
+                    className="w-full h-9 px-3 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                  />
+                </div>
+              </div>
             </div>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold text-foreground tracking-tight">
-              Simulasi Estimasi Biaya Furniture
-            </h2>
-            <p className="mt-2 text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-              Pilih lokasi pemasangan Anda dan kombinasikan komponen furniture yang Anda butuhkan.
-              Tarif dihitung otomatis secara transparan sesuai area jangkauan workshop.
-            </p>
           </div>
 
-          {/* Location / Area Picker */}
-          <div className="bg-background rounded-2xl p-4 border border-border w-full lg:w-[380px] shrink-0 shadow-2xs">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground mb-2.5 px-0.5">
-              <MapPin className="size-4 text-primary" />
-              <span>Pilih Area Pemasangan:</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* Province Select */}
-              <div>
-                <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                  Provinsi:
-                </label>
-                <SimpleDropdown
-                  value={selectedProvinceId}
-                  options={PROVINCES_DATA.map((prov) => ({ id: prov.id, name: prov.name }))}
-                  onChange={handleProvinceChange}
-                />
+          {/* Box 2: Area Pemasangan */}
+          <div className="lg:col-span-5 bg-background rounded-2xl p-4 sm:p-5 border border-border shadow-2xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-foreground mb-3 px-0.5">
+                <MapPin className="size-4 text-primary" />
+                <span>Pilih Area Pemasangan:</span>
               </div>
 
-              {/* City Select */}
-              <div>
-                <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                  Kota / Kabupaten:
-                </label>
-                <SimpleDropdown
-                  value={selectedCityId}
-                  options={availableCities.map((city) => ({ id: city.id, name: city.name }))}
-                  onChange={(newId) => setSelectedCityId(newId)}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Province Select */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                    Provinsi:
+                  </label>
+                  <SimpleDropdown
+                    value={selectedProvinceId}
+                    options={PROVINCES_DATA.map((prov) => ({ id: prov.id, name: prov.name }))}
+                    onChange={handleProvinceChange}
+                  />
+                </div>
+
+                {/* City Select */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                    Kota / Kabupaten:
+                  </label>
+                  <SimpleDropdown
+                    value={selectedCityId}
+                    options={availableCities.map((city) => ({ id: city.id, name: city.name }))}
+                    onChange={(newId) => setSelectedCityId(newId)}
+                  />
+                </div>
               </div>
             </div>
+
+            <p className="mt-3 text-[11px] text-muted-foreground/80 leading-normal">
+              Tarif wilayah otomatis disesuaikan (Dalam Kota / Luar Kota).
+            </p>
           </div>
         </div>
 
