@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CostCalculator } from "@/components/calculator/cost-calculator";
-import { ShieldCheck, Sparkles, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Simulasi Biaya & Kalkulator Furniture Custom",
@@ -44,25 +44,6 @@ const GUARANTEES = [
 export default function SimulasiBiayaPage() {
   return (
     <div className="bg-background min-h-screen">
-      {/* Page Header (Neutral, White-label) */}
-      <section className="border-b border-border bg-card/60 py-10 sm:py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl space-y-3">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider">
-              <Sparkles className="size-3.5" />
-              Kalkulator Furniture Custom
-            </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground tracking-tight leading-tight">
-              Simulasi perkiraan biaya transparan untuk ruangan Anda.
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-              Hitung perkiraan biaya pembuatan kitchen set dan interior custom Anda secara instan.
-              Semua komponen bersifat opsional, pilih bahan dan ukuran sesuai rencana Anda.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Main Calculator Engine */}
       <section className="bg-background">
         <CostCalculator />

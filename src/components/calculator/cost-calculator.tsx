@@ -42,12 +42,210 @@ import {
   SimulationExportData,
 } from "@/lib/export-simulation";
 
+export type KitchenLayoutType = "lurus" | "l_shape" | "u_shape";
+export type DimensionField = "length" | "height" | "qty" | "length2" | "length3";
+
+export const LAYOUT_ENABLED_ITEMS = [
+  "cab_bawah",
+  "cab_atas",
+  "cab_atas_full_plafond",
+  "lemari_pakaian",
+];
+
+export function calculateCabinetLayout(
+  itemId: string,
+  layout: KitchenLayoutType = "lurus",
+  p1: number,
+  p2: number = 0,
+  p3: number = 0,
+  height: number = 0
+): {
+  effectiveMeasurement: number;
+  effectiveM1: number;
+  effectiveM2: number;
+  formulaDescription: string;
+  formulaLabel: string;
+  layoutName: string;
+  unit: "M1" | "M2";
+} {
+  // 1. Lemari Pakaian Custom (Unit M2: P x T)
+  if (itemId === "lemari_pakaian") {
+    const ht = height > 0 ? height : 0;
+    if (layout === "l_shape") {
+      const effLen = Math.max(0, Math.round((p1 + p2 - 0.6) * 100) / 100);
+      const effArea = Math.max(0, Math.round(effLen * ht * 100) / 100);
+      return {
+        effectiveMeasurement: effArea,
+        effectiveM1: effLen,
+        effectiveM2: effArea,
+        formulaDescription: `(${p1}m + ${p2}m - 0,6m) × ${ht}m = ${effArea} m²`,
+        formulaLabel: "(P1 + P2 - 0,6) × T × Tarif",
+        layoutName: "Shape L",
+        unit: "M2",
+      };
+    }
+    if (layout === "u_shape") {
+      const effLen = Math.max(0, Math.round((p1 + p2 + p3 - 1.2) * 100) / 100);
+      const effArea = Math.max(0, Math.round(effLen * ht * 100) / 100);
+      return {
+        effectiveMeasurement: effArea,
+        effectiveM1: effLen,
+        effectiveM2: effArea,
+        formulaDescription: `(${p1}m + ${p2}m + ${p3}m - 1,2m) × ${ht}m = ${effArea} m²`,
+        formulaLabel: "(P1 + P2 + P3 - 1,2) × T × Tarif",
+        layoutName: "Shape U",
+        unit: "M2",
+      };
+    }
+    // Lurus
+    const effArea = Math.max(0, Math.round(p1 * ht * 100) / 100);
+    return {
+      effectiveMeasurement: effArea,
+      effectiveM1: p1,
+      effectiveM2: effArea,
+      formulaDescription: `${p1}m × ${ht}m = ${effArea} m²`,
+      formulaLabel: "P × T × Tarif",
+      layoutName: "Lurus",
+      unit: "M2",
+    };
+  }
+
+  // 2. Kabinet Bawah (Unit M1)
+  if (itemId === "cab_bawah") {
+    if (layout === "l_shape") {
+      const eff = Math.max(0, Math.round((p1 + p2 - 0.6) * 100) / 100);
+      return {
+        effectiveMeasurement: eff,
+        effectiveM1: eff,
+        effectiveM2: 0,
+        formulaDescription: `(${p1}m + ${p2}m - 0,6m) = ${eff} M1`,
+        formulaLabel: "(P1 + P2 - 0,6) × Tarif",
+        layoutName: "Shape L",
+        unit: "M1",
+      };
+    }
+    if (layout === "u_shape") {
+      const eff = Math.max(0, Math.round((p1 + p2 + p3 - 1.2) * 100) / 100);
+      return {
+        effectiveMeasurement: eff,
+        effectiveM1: eff,
+        effectiveM2: 0,
+        formulaDescription: `(${p1}m + ${p2}m + ${p3}m - 1,2m) = ${eff} M1`,
+        formulaLabel: "(P1 + P2 + P3 - 1,2) × Tarif",
+        layoutName: "Shape U",
+        unit: "M1",
+      };
+    }
+    return {
+      effectiveMeasurement: p1,
+      effectiveM1: p1,
+      effectiveM2: 0,
+      formulaDescription: `${p1} M1`,
+      formulaLabel: "Panjang (P) × Tarif",
+      layoutName: "Lurus",
+      unit: "M1",
+    };
+  }
+
+  // 3. Kabinet Atas (Unit M1)
+  if (itemId === "cab_atas") {
+    if (layout === "l_shape") {
+      const eff = Math.max(0, Math.round((p1 + p2 - 0.4) * 100) / 100);
+      return {
+        effectiveMeasurement: eff,
+        effectiveM1: eff,
+        effectiveM2: 0,
+        formulaDescription: `(${p1}m + ${p2}m - 0,4m) = ${eff} M1`,
+        formulaLabel: "(P1 + P2 - 0,4) × Tarif",
+        layoutName: "Shape L",
+        unit: "M1",
+      };
+    }
+    if (layout === "u_shape") {
+      const eff = Math.max(0, Math.round((p1 + p2 + p3 - 0.8) * 100) / 100);
+      return {
+        effectiveMeasurement: eff,
+        effectiveM1: eff,
+        effectiveM2: 0,
+        formulaDescription: `(${p1}m + ${p2}m + ${p3}m - 0,8m) = ${eff} M1`,
+        formulaLabel: "(P1 + P2 + P3 - 0,8) × Tarif",
+        layoutName: "Shape U",
+        unit: "M1",
+      };
+    }
+    return {
+      effectiveMeasurement: p1,
+      effectiveM1: p1,
+      effectiveM2: 0,
+      formulaDescription: `${p1} M1`,
+      formulaLabel: "Panjang (P) × Tarif",
+      layoutName: "Lurus",
+      unit: "M1",
+    };
+  }
+
+  // 4. Kabinet Atas Full Plafond (Unit M1)
+  if (itemId === "cab_atas_full_plafond") {
+    if (layout === "l_shape") {
+      const base = Math.max(0, Math.round((p1 + p2 - 0.4) * 100) / 100);
+      const eff = Math.round(base * 2 * 100) / 100;
+      return {
+        effectiveMeasurement: eff,
+        effectiveM1: eff,
+        effectiveM2: 0,
+        formulaDescription: `(${p1}m + ${p2}m - 0,4m) × 2 tingkat = ${eff} M1`,
+        formulaLabel: "(P1 + P2 - 0,4) × 2 × Tarif",
+        layoutName: "Shape L",
+        unit: "M1",
+      };
+    }
+    if (layout === "u_shape") {
+      const base = Math.max(0, Math.round((p1 + p2 + p3 - 0.8) * 100) / 100);
+      const eff = Math.round(base * 2 * 100) / 100;
+      return {
+        effectiveMeasurement: eff,
+        effectiveM1: eff,
+        effectiveM2: 0,
+        formulaDescription: `(${p1}m + ${p2}m + ${p3}m - 0,8m) × 2 tingkat = ${eff} M1`,
+        formulaLabel: "(P1 + P2 + P3 - 0,8) × 2 × Tarif",
+        layoutName: "Shape U",
+        unit: "M1",
+      };
+    }
+    const eff = Math.round(p1 * 2 * 100) / 100;
+    return {
+      effectiveMeasurement: eff,
+      effectiveM1: eff,
+      effectiveM2: 0,
+      formulaDescription: `${p1}m × 2 tingkat = ${eff} M1`,
+      formulaLabel: "(P × 2) × Tarif",
+      layoutName: "Lurus",
+      unit: "M1",
+    };
+  }
+
+  return {
+    effectiveMeasurement: p1,
+    effectiveM1: p1,
+    effectiveM2: 0,
+    formulaDescription: `${p1}`,
+    formulaLabel: "Panjang (P) × Tarif",
+    layoutName: "Lurus",
+    unit: "M1",
+  };
+}
+
+export const calculateKitchenCabinetM1 = calculateCabinetLayout;
+
 type ItemState = {
   enabled: boolean;
   optionId: string;
   length: number | "";
   height: number | "";
   qty: number | "";
+  layout?: KitchenLayoutType;
+  length2?: number | "";
+  length3?: number | "";
 };
 
 type CalculatorState = Record<string, ItemState>;
@@ -138,6 +336,9 @@ function buildInitialState(): CalculatorState {
       length: "",
       height: "",
       qty: "",
+      layout: "lurus",
+      length2: "",
+      length3: "",
     };
   }
   return state;
@@ -318,6 +519,9 @@ export function CostCalculator() {
             willEnable && (!current?.qty || current.qty === 0)
               ? (targetConfig?.defaultQty ?? 1)
               : (current?.qty ?? ""),
+          layout: current?.layout ?? "lurus",
+          length2: current?.length2 ?? "",
+          length3: current?.length3 ?? "",
         },
       };
     });
@@ -358,10 +562,59 @@ export function CostCalculator() {
     });
   };
 
+  // Set layout for kitchen cabinets and wardrobe
+  const setLayout = (itemId: string, layout: KitchenLayoutType) => {
+    setItemsState((prev) => {
+      const current = prev[itemId];
+      if (!current) return prev;
+
+      const isWardrobe = itemId === "lemari_pakaian";
+      let p1: number =
+        typeof current.length === "number" && current.length > 0
+          ? current.length
+          : isWardrobe
+            ? 2
+            : 3;
+      let p2: number | "" =
+        typeof current.length2 === "number" && current.length2 > 0 ? current.length2 : "";
+      let p3: number | "" =
+        typeof current.length3 === "number" && current.length3 > 0 ? current.length3 : "";
+      let ht: number | "" =
+        typeof current.height === "number" && current.height > 0
+          ? current.height
+          : isWardrobe
+            ? 2.6
+            : current.height;
+
+      if (layout === "l_shape") {
+        if (p2 === "" || p2 === 0) p2 = 2;
+        p3 = "";
+      } else if (layout === "u_shape") {
+        if (p2 === "" || p2 === 0) p2 = isWardrobe ? 2 : 2.5;
+        if (p3 === "" || p3 === 0) p3 = 2;
+      } else {
+        p2 = "";
+        p3 = "";
+      }
+
+      return {
+        ...prev,
+        [itemId]: {
+          ...current,
+          layout,
+          length: p1,
+          length2: p2,
+          length3: p3,
+          height: isWardrobe ? ht : current.height,
+        },
+      };
+    });
+  };
+
   // Update dimension with +/- buttons
   const updateDimension = (
     itemId: string,
-    field: "length" | "height" | "qty",
+    field: DimensionField,
     delta: number,
     minVal: number = 0.5
   ) => {
@@ -382,7 +635,7 @@ export function CostCalculator() {
   // Set dimension directly from input
   const setDirectDimension = (
     itemId: string,
-    field: "length" | "height" | "qty",
+    field: DimensionField,
     val: number | ""
   ) => {
     setItemsState((prev) => ({
@@ -417,6 +670,8 @@ export function CostCalculator() {
 
     const activeBreakdown: Array<{
       item: FurnitureItemConfig;
+      displayName: string;
+      layout: KitchenLayoutType;
       optionName: string;
       modelName: string;
       unitPrice: number;
@@ -443,15 +698,39 @@ export function CostCalculator() {
 
       let subtotal = 0;
       let measurement = 0;
+      let displayName = item.name;
 
-      if (item.id === "meja_island") {
+      if (LAYOUT_ENABLED_ITEMS.includes(item.id)) {
+        const p1 = len;
+        const p2 = typeof state.length2 === "number" ? state.length2 : 0;
+        const p3 = typeof state.length3 === "number" ? state.length3 : 0;
+        const layoutRes = calculateCabinetLayout(
+          item.id,
+          state.layout ?? "lurus",
+          p1,
+          p2,
+          p3,
+          ht
+        );
+        measurement = layoutRes.effectiveMeasurement;
+        subtotal = Math.round(measurement * unitPrice);
+        if (layoutRes.unit === "M2") {
+          totalM2 += measurement;
+        } else {
+          totalM1 += measurement;
+        }
+        if (state.layout && state.layout !== "lurus") {
+          displayName = `${item.name} (${layoutRes.layoutName})`;
+        }
+      } else if (item.id === "meja_island") {
         measurement = len;
         subtotal = len > 0 ? Math.round((len / 0.6) * unitPrice) : 0;
         totalM1 += len;
-      } else if (item.id === "cab_atas_full_plafond") {
-        measurement = len;
-        subtotal = len > 0 ? Math.round((len * 2) * unitPrice) : 0;
-        totalM1 += len * 2;
+      } else if (item.id === "lemari_bawah_tangga") {
+        const area = Math.round(len * ht * 0.8 * 100) / 100;
+        measurement = area;
+        subtotal = len > 0 && ht > 0 ? Math.round(len * ht * 0.8 * unitPrice) : 0;
+        totalM2 += area;
       } else if (selectedOption.unit === "M1") {
         measurement = len;
         subtotal = len * unitPrice;
@@ -471,6 +750,8 @@ export function CostCalculator() {
 
       activeBreakdown.push({
         item,
+        displayName,
+        layout: state.layout ?? "lurus",
         optionName: selectedOption.name,
         modelName: selectedOption.model,
         unitPrice,
@@ -498,6 +779,8 @@ export function CostCalculator() {
               description: `Aksesoris Kustom - ${CATEGORY_CUSTOM_CONFIG[cat].title}`,
               options: [],
             },
+            displayName: `${acc.name.trim()} (${CATEGORY_CUSTOM_CONFIG[cat].defaultItemName})`,
+            layout: "lurus",
             optionName: "Kustom",
             modelName: `${q} unit @ ${formatRupiah(p)}`,
             unitPrice: p,
@@ -614,7 +897,7 @@ export function CostCalculator() {
         totalM2: calculationSummary.totalM2,
         activeCount: calculationSummary.activeCount,
         breakdown: calculationSummary.activeBreakdown.map((b) => ({
-          itemName: b.item.name,
+          itemName: b.displayName,
           optionName: b.optionName,
           modelName: b.modelName,
           unitPrice: b.unitPrice,
@@ -677,8 +960,7 @@ export function CostCalculator() {
                 <div className="sm:col-span-2">
                   <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-1">
                     <Building2 className="size-3 text-primary" />
-                    <span>Nama Akun</span>
-                    <span className="text-primary font-bold">(Identitas H1 di Ekspor)</span>:
+                    <span>Nama Akun:</span>
                   </label>
                   <input
                     type="text"
@@ -856,6 +1138,7 @@ export function CostCalculator() {
                 onSetDirectDimension={(field, val) =>
                   setDirectDimension(item.id, field, val)
                 }
+                onSetLayout={(layout) => setLayout(item.id, layout)}
               />
             ))}
           </div>
@@ -1201,7 +1484,7 @@ export function CostCalculator() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-semibold text-foreground line-clamp-1">
-                          {item.item.name}
+                          {item.displayName}
                         </span>
                         <span className="font-bold text-foreground whitespace-nowrap">
                           {formatRupiah(item.subtotal)}
@@ -1212,8 +1495,8 @@ export function CostCalculator() {
                         <span>
                           {item.item.id === "meja_island" ? (
                             `(${item.measurement} m : 0,6) x ${formatRupiah(item.unitPrice)}`
-                          ) : item.item.id === "cab_atas_full_plafond" ? (
-                            `(${item.measurement} m x 2) x ${formatRupiah(item.unitPrice)}`
+                          ) : item.item.id === "lemari_bawah_tangga" ? (
+                            `(${item.measurement} m² [x 0,8]) x ${formatRupiah(item.unitPrice)}`
                           ) : (
                             <>
                               {item.unit === "M1" && `${item.measurement} m1`}
@@ -1302,14 +1585,15 @@ type ItemCardProps = {
   onToggle: () => void;
   onSelectOption: (optId: string) => void;
   onUpdateDimension: (
-    field: "length" | "height" | "qty",
+    field: DimensionField,
     delta: number,
     minVal?: number
   ) => void;
   onSetDirectDimension: (
-    field: "length" | "height" | "qty",
+    field: DimensionField,
     val: number | ""
   ) => void;
+  onSetLayout?: (layout: KitchenLayoutType) => void;
 };
 
 function ItemCard({
@@ -1320,6 +1604,7 @@ function ItemCard({
   onSelectOption,
   onUpdateDimension,
   onSetDirectDimension,
+  onSetLayout,
 }: ItemCardProps) {
   const isEnabled = state?.enabled ?? false;
   const selectId = useId();
@@ -1358,15 +1643,28 @@ function ItemCard({
     : 0;
 
   let subtotal = 0;
+  let layoutResult: ReturnType<typeof calculateCabinetLayout> | null = null;
   if (state && selectedOption) {
     const len = typeof state.length === "number" ? state.length : 0;
     const ht = typeof state.height === "number" ? state.height : 0;
     const q = typeof state.qty === "number" ? state.qty : 0;
+    const p2 = typeof state.length2 === "number" ? state.length2 : 0;
+    const p3 = typeof state.length3 === "number" ? state.length3 : 0;
 
-    if (item.id === "meja_island") {
+    if (LAYOUT_ENABLED_ITEMS.includes(item.id)) {
+      layoutResult = calculateCabinetLayout(
+        item.id,
+        state.layout ?? "lurus",
+        len,
+        p2,
+        p3,
+        ht
+      );
+      subtotal = Math.round(layoutResult.effectiveMeasurement * unitPrice);
+    } else if (item.id === "meja_island") {
       subtotal = len > 0 ? Math.round((len / 0.6) * unitPrice) : 0;
-    } else if (item.id === "cab_atas_full_plafond") {
-      subtotal = len > 0 ? Math.round((len * 2) * unitPrice) : 0;
+    } else if (item.id === "lemari_bawah_tangga") {
+      subtotal = len > 0 && ht > 0 ? Math.round(len * ht * 0.8 * unitPrice) : 0;
     } else if (selectedOption.unit === "M1") {
       subtotal = len * unitPrice;
     } else if (selectedOption.unit === "M2") {
@@ -1416,15 +1714,27 @@ function ItemCard({
                 {item.name}
               </span>
               <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border">
-                {item.id === "meja_island"
-                  ? "Rumus Khusus: (P : 0,6) x Tarif"
-                  : item.id === "cab_atas_full_plafond"
-                    ? "Rumus Khusus: (P x 2) x Tarif"
-                    : activeUnit === "M1"
-                      ? "Meter Lari (M1)"
-                      : activeUnit === "M2"
-                        ? "Meter Persegi (M2 / P x T)"
-                        : "Jumlah (QTY)"}
+                {LAYOUT_ENABLED_ITEMS.includes(item.id)
+                  ? state?.layout === "l_shape"
+                    ? `Shape L: ${layoutResult?.formulaLabel ?? "Rumus L"}`
+                    : state?.layout === "u_shape"
+                      ? `Shape U: ${layoutResult?.formulaLabel ?? "Rumus U"}`
+                      : item.id === "cab_atas_full_plafond"
+                        ? "Rumus Khusus: (P x 2) x Tarif"
+                        : item.id === "lemari_pakaian"
+                          ? "Meter Persegi (M2 / P x T)"
+                          : "Meter Lari (M1 / Lurus)"
+                  : item.id === "meja_island"
+                    ? "Rumus Khusus: (P : 0,6) x Tarif"
+                    : item.id === "cab_atas_full_plafond"
+                      ? "Rumus Khusus: (P x 2) x Tarif"
+                      : item.id === "lemari_bawah_tangga"
+                        ? "Rumus Khusus: P x T x 0,8 x Tarif"
+                        : activeUnit === "M1"
+                          ? "Meter Lari (M1)"
+                          : activeUnit === "M2"
+                            ? "Meter Persegi (M2 / P x T)"
+                            : "Jumlah (QTY)"}
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
@@ -1449,9 +1759,67 @@ function ItemCard({
       {/* Expanded Controls when Item is Enabled */}
       {isEnabled && (
         <div className="px-4 pb-5 pt-1 sm:px-5 border-t border-border/60 bg-muted/20 rounded-b-2xl">
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center pt-3">
+          {/* Pilihan Layout Bentuk Khusus Kabinet Dapur & Lemari Pakaian */}
+          {LAYOUT_ENABLED_ITEMS.includes(item.id) && (
+            <div className="pt-3 pb-3 border-b border-border/60 mb-3.5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {item.category === "wardrobe" || item.id === "lemari_pakaian"
+                    ? "Pilihan Layout Lemari Pakaian:"
+                    : "Pilihan Layout Bentuk Dapur:"}
+                </span>
+                <span className="text-[11px] font-bold text-primary">
+                  {state?.layout === "l_shape"
+                    ? "Bentuk Sudut L (Shape L)"
+                    : state?.layout === "u_shape"
+                      ? "Bentuk Keliling U (Shape U)"
+                      : "Bentuk Lurus (I-Line)"}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSetLayout?.("lurus")}
+                  className={cn(
+                    "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                    (!state?.layout || state.layout === "lurus")
+                      ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <span>Lurus</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetLayout?.("l_shape")}
+                  className={cn(
+                    "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                    state?.layout === "l_shape"
+                      ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <span>Shape L</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetLayout?.("u_shape")}
+                  className={cn(
+                    "px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                    state?.layout === "u_shape"
+                      ? "border-primary bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <span>Shape U</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center pt-2">
             {/* Material & Model Selector */}
-            <div className="sm:col-span-7">
+            <div className={LAYOUT_ENABLED_ITEMS.includes(item.id) ? "sm:col-span-6" : "sm:col-span-7"}>
               <div className="flex items-center justify-between mb-1.5 gap-2">
                 <label
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -1592,8 +1960,498 @@ function ItemCard({
             </div>
 
             {/* Dimension Inputs */}
-            <div className="sm:col-span-5">
-              {activeUnit === "M1" && (
+            <div className={LAYOUT_ENABLED_ITEMS.includes(item.id) ? "sm:col-span-6" : "sm:col-span-5"}>
+              {LAYOUT_ENABLED_ITEMS.includes(item.id) ? (
+                <div>
+                  {item.id === "lemari_pakaian" ? (
+                    /* Input Dimensi Khusus Lemari Pakaian (Unit M2: P x T) */
+                    <div>
+                      {(!state?.layout || state.layout === "lurus") && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                            <span>Dimensi Luas (P x T):</span>
+                            <span className="text-primary font-bold">
+                              {typeof state?.length === "number" &&
+                              typeof state?.height === "number" &&
+                              state.length > 0 &&
+                              state.height > 0
+                                ? `${layoutResult?.effectiveMeasurement ?? 0} m² (${state.length}m x ${state.height}m)`
+                                : "Belum diisi (0 m²)"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Panjang / P (m)</div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateDimension("length", -0.5, 0.5)}
+                                  className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                                  title="Kurangi 0.5m"
+                                >
+                                  <Minus className="size-3" />
+                                </button>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  min="0"
+                                  placeholder="0"
+                                  value={state?.length ?? ""}
+                                  onChange={(e) =>
+                                    onSetDirectDimension(
+                                      "length",
+                                      e.target.value === "" ? "" : parseFloat(e.target.value)
+                                    )
+                                  }
+                                  className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateDimension("length", 0.5, 0.5)}
+                                  className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                                  title="Tambah 0.5m"
+                                >
+                                  <Plus className="size-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateDimension("height", -0.1, 0.5)}
+                                  className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                                  title="Kurangi 0.1m"
+                                >
+                                  <Minus className="size-3" />
+                                </button>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  min="0"
+                                  placeholder="0"
+                                  value={state?.height ?? ""}
+                                  onChange={(e) =>
+                                    onSetDirectDimension(
+                                      "height",
+                                      e.target.value === "" ? "" : parseFloat(e.target.value)
+                                    )
+                                  }
+                                  className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateDimension("height", 0.1, 0.5)}
+                                  className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                                  title="Tambah 0.1m"
+                                >
+                                  <Plus className="size-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-1 flex items-center justify-between">
+                            <span>Rumus layout:</span>
+                            <span className="font-semibold text-primary">
+                              {layoutResult?.formulaLabel}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {state?.layout === "l_shape" && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                            <span>Luas Efektif:</span>
+                            <span className="text-primary font-bold">
+                              {layoutResult ? `${layoutResult.effectiveMeasurement} m²` : "0 m²"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length2 ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length2",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Tinggi / T (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.height ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "height",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
+                            <div className="flex items-center justify-between">
+                              <span>Potongan sudut:</span>
+                              <span className="font-semibold text-foreground">
+                                {layoutResult?.formulaDescription}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>Rumus hitung:</span>
+                              <span className="font-semibold text-primary">
+                                {layoutResult?.formulaLabel}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {state?.layout === "u_shape" && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                            <span>Luas Efektif:</span>
+                            <span className="text-primary font-bold">
+                              {layoutResult ? `${layoutResult.effectiveMeasurement} m²` : "0 m²"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length2 ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length2",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 3 / P3 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length3 ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length3",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 pt-0.5">
+                            <span className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                              Tinggi Lemari (T):
+                            </span>
+                            <div className="flex items-center gap-1 flex-1 max-w-[180px]">
+                              <button
+                                type="button"
+                                onClick={() => onUpdateDimension("height", -0.1, 0.5)}
+                                className="size-7 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                                title="Kurangi 0.1 meter"
+                              >
+                                <Minus className="size-3" />
+                              </button>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.height ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "height",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1 text-foreground focus:border-primary focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => onUpdateDimension("height", 0.1, 0.5)}
+                                className="size-7 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                                title="Tambah 0.1 meter"
+                              >
+                                <Plus className="size-3" />
+                              </button>
+                              <span className="text-xs font-semibold text-muted-foreground pl-0.5">m</span>
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
+                            <div className="flex items-center justify-between">
+                              <span>Potongan 2 sudut:</span>
+                              <span className="font-semibold text-foreground">
+                                {layoutResult?.formulaDescription}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>Rumus hitung:</span>
+                              <span className="font-semibold text-primary">
+                                {layoutResult?.formulaLabel}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Input Dimensi Khusus Kabinet Dapur (Unit M1) */
+                    <div>
+                      {(!state?.layout || state.layout === "lurus") && (
+                        <div>
+                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
+                            <span>Panjang Bentang (P):</span>
+                            <span className="text-primary font-bold">
+                              {state?.length
+                                ? item.id === "cab_atas_full_plafond"
+                                  ? `${state.length} m (${state.length}m x 2 = ${Math.round(state.length * 2 * 10) / 10} M1)`
+                                  : `${state.length} Meter Lari (M1)`
+                                : "Belum diisi (0 M1)"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("length", -0.5, 0.5)}
+                              className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
+                              title="Kurangi 0.5 meter"
+                            >
+                              <Minus className="size-3.5" />
+                            </button>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              placeholder="0"
+                              value={state?.length ?? ""}
+                              onChange={(e) =>
+                                onSetDirectDimension(
+                                  "length",
+                                  e.target.value === "" ? "" : parseFloat(e.target.value)
+                                )
+                              }
+                              className="flex-1 text-center font-bold text-sm rounded-xl border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onUpdateDimension("length", 0.5, 0.5)}
+                              className="size-9 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer"
+                              title="Tambah 0.5 meter"
+                            >
+                              <Plus className="size-3.5" />
+                            </button>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center justify-between">
+                            <span>Rumus layout:</span>
+                            <span className="font-semibold text-primary">
+                              {layoutResult?.formulaLabel}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {state?.layout === "l_shape" && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                            <span>Panjang Efektif:</span>
+                            <span className="text-primary font-bold">
+                              {layoutResult ? `${layoutResult.effectiveM1} M1` : "0 M1"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length2 ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length2",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
+                            <div className="flex items-center justify-between">
+                              <span>Potongan sudut:</span>
+                              <span className="font-semibold text-foreground">
+                                {layoutResult?.formulaDescription}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>Rumus hitung:</span>
+                              <span className="font-semibold text-primary">
+                                {layoutResult?.formulaLabel}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {state?.layout === "u_shape" && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                            <span>Panjang Efektif:</span>
+                            <span className="text-primary font-bold">
+                              {layoutResult ? `${layoutResult.effectiveM1} M1` : "0 M1"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 1 / P1 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 2 / P2 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length2 ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length2",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-[11px] text-muted-foreground mb-0.5">Sisi 3 / P3 (m)</div>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0"
+                                value={state?.length3 ?? ""}
+                                onChange={(e) =>
+                                  onSetDirectDimension(
+                                    "length3",
+                                    e.target.value === "" ? "" : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
+                            <div className="flex items-center justify-between">
+                              <span>Potongan 2 sudut:</span>
+                              <span className="font-semibold text-foreground">
+                                {layoutResult?.formulaDescription}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>Rumus hitung:</span>
+                              <span className="font-semibold text-primary">
+                                {layoutResult?.formulaLabel}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : activeUnit === "M1" ? (
                 <div>
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
                     <span>{item.id === "meja_island" ? "Panjang Meja:" : "Panjang Bentang:"}</span>
@@ -1601,9 +2459,7 @@ function ItemCard({
                       {state?.length
                         ? item.id === "meja_island"
                           ? `${state.length} m (${state.length} : 0,6)`
-                          : item.id === "cab_atas_full_plafond"
-                            ? `${state.length} m (${state.length} x 2)`
-                            : `${state.length} Meter Lari (M1)`
+                          : `${state.length} Meter Lari (M1)`
                         : "Belum diisi (0 M1)"}
                     </span>
                   </div>
@@ -1647,27 +2503,23 @@ function ItemCard({
                       </span>
                     </div>
                   )}
-                  {item.id === "cab_atas_full_plafond" && (
-                    <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center justify-between">
-                      <span>Rumus workshop:</span>
-                      <span className="font-semibold text-primary">
-                        (Panjang &times; 2) &times; Tarif
-                      </span>
-                    </div>
-                  )}
                 </div>
-              )}
-
-              {activeUnit === "M2" && (
+              ) : activeUnit === "M2" ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                    <span>Dimensi Luas (P x T):</span>
+                    <span>
+                      {item.id === "lemari_bawah_tangga"
+                        ? "Dimensi Luas Efektif (P x T x 0,8):"
+                        : "Dimensi Luas (P x T):"}
+                    </span>
                     <span className="text-primary font-bold">
                       {typeof state?.length === "number" &&
                       typeof state?.height === "number" &&
                       state.length > 0 &&
                       state.height > 0
-                        ? `${Math.round(state.length * state.height * 100) / 100} m² (${state.length}m x ${state.height}m)`
+                        ? item.id === "lemari_bawah_tangga"
+                          ? `${Math.round(state.length * state.height * 0.8 * 100) / 100} m² (${state.length}m x ${state.height}m x 0,8)`
+                          : `${Math.round(state.length * state.height * 100) / 100} m² (${state.length}m x ${state.height}m)`
                         : "Belum diisi (0 m²)"}
                     </span>
                   </div>
@@ -1713,12 +2565,14 @@ function ItemCard({
                   </div>
                   <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-0.5">
                     <span>Rumus perhitungan:</span>
-                    <span className="font-semibold text-primary">Panjang (P) &times; Tinggi (T) &times; Tarif</span>
+                    <span className="font-semibold text-primary">
+                      {item.id === "lemari_bawah_tangga"
+                        ? "Panjang (P) × Tinggi (T) × 0,8 × Tarif"
+                        : "Panjang (P) × Tinggi (T) × Tarif"}
+                    </span>
                   </div>
                 </div>
-              )}
-
-              {activeUnit === "UNIT" && (
+              ) : activeUnit === "UNIT" ? (
                 <div>
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1">
                     <span>Jumlah (QTY):</span>
@@ -1767,7 +2621,7 @@ function ItemCard({
                     </button>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>

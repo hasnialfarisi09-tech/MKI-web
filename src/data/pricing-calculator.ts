@@ -1154,7 +1154,7 @@ export const ACCESSORIES_ITEMS: FurnitureItemConfig[] = [
 export const OTHER_CATEGORIES: FurnitureItemConfig[] = [
   {
     id: "lemari_pakaian",
-    name: "Lemari Pakaian Custom (Wardrobe Full Plafon)",
+    name: "Lemari Pakaian Custom",
     category: "wardrobe",
     defaultUnit: "M2",
     description: "Dihitung Meter Persegi (Panjang x Tinggi). Pintu swing/sliding, gantungan baju, laci dalam, ambalan.",

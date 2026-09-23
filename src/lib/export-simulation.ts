@@ -24,7 +24,8 @@ export type SimulationExportData = {
 
 /**
  * Render quotation onto an off-screen HTML5 Canvas with high DPI
- * Clean & White-label (tanpa brand identitas khusus)
+ * Rasio Portrait Mobile (9:16 - Base 1080 x 1920 px)
+ * Clean & White-label (Identitas akun pengguna sebagai H1 & Footer)
  */
 function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -33,36 +34,50 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
     throw new Error("Could not create canvas context");
   }
 
-  // Base dimensions (1200px width for crisp readability)
-  const width = 1200;
-  const padding = 60;
-  const contentWidth = width - padding * 2;
+  // Base dimensions (1080px width for standard 9:16 mobile portrait)
+  const width = 1080;
+  const padding = 48;
+  const contentWidth = width - padding * 2; // 984px
+  const minMobileHeight = 1920; // 9:16 standard mobile portrait aspect ratio
 
   const hasAccountName = Boolean(data.accountName && data.accountName.trim());
   const hasClientName = Boolean(data.clientName && data.clientName.trim());
   const hasClientAddress = Boolean(data.clientAddress && data.clientAddress.trim());
   const hasClientInfo = hasClientName || hasClientAddress;
 
-  // Calculate dynamic height based on rows
-  const headerHeight = 250;
-  const metaHeight = hasClientInfo ? 180 : 110;
-  const tableHeaderHeight = 50;
-  const rowHeight = 72;
+  // Calculate dynamic content heights
+  const headerHeight = 160;
+  const metaHeight = hasClientInfo ? 115 : 70;
+  const tableHeaderHeight = 48;
+  const rowHeight = 74;
   const rowsHeight = Math.max(1, data.breakdown.length) * rowHeight;
-  const totalBoxHeight = 160;
-  const notesHeight = 220;
-  const footerHeight = 80;
+  const totalBoxHeight = 150;
+  const standardsHeight = 185;
+  const workflowHeight = 150;
+  const footerAreaHeight = 70;
 
-  const totalHeight =
+  // Check if workflow card fits within 9:16 portrait canvas
+  const estimatedHeightWithoutWorkflow =
+    padding +
     headerHeight +
     metaHeight +
     tableHeaderHeight +
     rowsHeight +
     totalBoxHeight +
-    notesHeight +
-    footerHeight;
+    standardsHeight +
+    footerAreaHeight +
+    120; // margins
 
-  // Scale for retina/high-res rendering (scale = 2 for crisp 2400px width)
+  const showWorkflow = estimatedHeightWithoutWorkflow + workflowHeight <= minMobileHeight;
+
+  const totalContentHeight = showWorkflow
+    ? estimatedHeightWithoutWorkflow + workflowHeight
+    : estimatedHeightWithoutWorkflow;
+
+  // Canvas height: ensure at least 9:16 mobile portrait (1920px), expand if many items
+  const totalHeight = Math.max(minMobileHeight, Math.ceil(totalContentHeight));
+
+  // Scale for retina/high-res rendering (scale = 2 for ultra-crisp 2160 x 3840 display)
   const scale = 2;
   canvas.width = width * scale;
   canvas.height = totalHeight * scale;
@@ -72,14 +87,13 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, width, totalHeight);
 
-  // Decorative top accent bar (Neutral warm amber/ember accent)
+  // Decorative top accent bar (Neutral warm ember accent)
   ctx.fillStyle = "#E5571F";
   ctx.fillRect(0, 0, width, 12);
 
-  let currentY = padding + 10;
+  let currentY = padding + 6;
 
   // ==================== HEADER (IDENTITAS H1 / NAMA AKUN) ====================
-  // H1 Title: Nama Akun jika diisi, atau default judul estimasi
   const h1Title = hasAccountName
     ? data.accountName!.trim().toUpperCase()
     : "ESTIMASI BIAYA FURNITURE & INTERIOR";
@@ -90,9 +104,9 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
 
   ctx.fillStyle = "#1C1917";
   ctx.font =
-    h1Title.length > 32
-      ? "bold 24px 'Segoe UI', Roboto, sans-serif"
-      : "bold 30px 'Segoe UI', Roboto, sans-serif";
+    h1Title.length > 28
+      ? "bold 23px 'Segoe UI', Roboto, sans-serif"
+      : "bold 28px 'Segoe UI', Roboto, sans-serif";
   ctx.fillText(h1Title, padding, currentY + 28);
 
   // Subtitle
@@ -100,16 +114,16 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   ctx.font = "600 13px 'Segoe UI', Roboto, sans-serif";
   ctx.fillText(h1Subtitle, padding, currentY + 52);
 
-  // Right-aligned specification details (Neutral, no company brand)
+  // Right-aligned specification details
   ctx.fillStyle = "#57534E";
-  ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
+  ctx.font = "12px 'Segoe UI', Roboto, sans-serif";
   ctx.textAlign = "right";
-  ctx.fillText("Dokumen Simulasi Digital", width - padding, currentY + 18);
-  ctx.fillText("Standar Mutu Workshop Presisi", width - padding, currentY + 38);
-  ctx.fillText("Material Grade A & Fitting Soft-Close", width - padding, currentY + 58);
+  ctx.fillText("Dokumen Simulasi Digital", width - padding, currentY + 16);
+  ctx.fillText("Standar Mutu Workshop Presisi", width - padding, currentY + 36);
+  ctx.fillText("Material Grade A & Soft-Close", width - padding, currentY + 56);
   ctx.textAlign = "left";
 
-  currentY += 85;
+  currentY += 76;
 
   // Divider line
   ctx.strokeStyle = "#E7E5E4";
@@ -119,12 +133,12 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   ctx.lineTo(width - padding, currentY);
   ctx.stroke();
 
-  currentY += 28;
+  currentY += 24;
 
   // ==================== DOCUMENT TITLE & METADATA ====================
   ctx.fillStyle = "#1C1917";
-  ctx.font = "bold 20px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("RINCIAN ESTIMASI BIAYA PER RUANGAN", padding, currentY + 10);
+  ctx.font = "bold 18px 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText("RINCIAN ESTIMASI BIAYA PER RUANGAN", padding, currentY + 8);
 
   // Today's date
   const today = new Date();
@@ -134,13 +148,12 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
     year: "numeric",
   }).format(today);
 
-  const regionLabel = data.region === "DK" ? "Dalam Kota (DK)" : "Luar Kota (LK)";
-  const locationText = `Wilayah: ${data.cityName}, ${data.provinceName} (${regionLabel})`;
+  const locationText = `Wilayah: ${data.cityName}, ${data.provinceName}`;
 
   if (hasClientInfo) {
     // Client & Project Information Box
-    const boxY = currentY + 32;
-    const boxHeight = 84;
+    const boxY = currentY + 24;
+    const boxHeight = 82;
     ctx.fillStyle = "#FAF8F5";
     ctx.beginPath();
     ctx.roundRect(padding, boxY, contentWidth, boxHeight, 10);
@@ -152,56 +165,56 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
     // Left Column: Client Name & Address
     ctx.fillStyle = "#78716C";
     ctx.font = "bold 11px 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText("NAMA KLIEN:", padding + 20, boxY + 28);
-    ctx.fillText("ALAMAT KLIEN:", padding + 20, boxY + 58);
+    ctx.fillText("NAMA KLIEN:", padding + 18, boxY + 26);
+    ctx.fillText("ALAMAT KLIEN:", padding + 18, boxY + 54);
 
     ctx.fillStyle = "#1C1917";
     ctx.font = "bold 14px 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(data.clientName?.trim() || "-", padding + 130, boxY + 28);
+    ctx.fillText(data.clientName?.trim() || "-", padding + 120, boxY + 26);
 
     ctx.fillStyle = "#44403C";
     ctx.font = "500 13px 'Segoe UI', Roboto, sans-serif";
     const rawAddress = data.clientAddress?.trim() || "-";
     const displayAddress =
-      rawAddress.length > 55 ? `${rawAddress.slice(0, 52)}...` : rawAddress;
-    ctx.fillText(displayAddress, padding + 130, boxY + 58);
+      rawAddress.length > 50 ? `${rawAddress.slice(0, 47)}...` : rawAddress;
+    ctx.fillText(displayAddress, padding + 120, boxY + 54);
 
     // Right Column: Location & Date
-    const rightColX = padding + 620;
+    const rightColX = padding + 540;
     ctx.fillStyle = "#78716C";
     ctx.font = "bold 11px 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText("WILAYAH:", rightColX, boxY + 28);
-    ctx.fillText("TANGGAL:", rightColX, boxY + 58);
+    ctx.fillText("WILAYAH:", rightColX, boxY + 26);
+    ctx.fillText("TANGGAL:", rightColX, boxY + 54);
 
     ctx.fillStyle = "#E5571F";
     ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(locationText.replace("Wilayah: ", ""), rightColX + 85, boxY + 28);
+    ctx.fillText(locationText.replace("Wilayah: ", ""), rightColX + 78, boxY + 26);
 
     ctx.fillStyle = "#57534E";
     ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(dateFormatted, rightColX + 85, boxY + 58);
+    ctx.fillText(dateFormatted, rightColX + 78, boxY + 54);
 
-    currentY += 140;
+    currentY += 124;
   } else {
     // Compact metadata when no client info
     ctx.fillStyle = "#78716C";
     ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(`Dibuat pada: ${dateFormatted}`, padding, currentY + 32);
+    ctx.fillText(`Dibuat pada: ${dateFormatted}`, padding, currentY + 30);
 
     // Location Badge Box (Right-aligned)
     ctx.fillStyle = "#F5F3EF";
-    const badgeWidth = ctx.measureText(locationText).width + 30;
+    const badgeWidth = ctx.measureText(locationText).width + 26;
     ctx.beginPath();
-    ctx.roundRect(width - padding - badgeWidth, currentY - 5, badgeWidth, 38, 8);
+    ctx.roundRect(width - padding - badgeWidth, currentY + 10, badgeWidth, 34, 8);
     ctx.fill();
 
     ctx.fillStyle = "#E5571F";
     ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
     ctx.textAlign = "right";
-    ctx.fillText(locationText, width - padding - 15, currentY + 19);
+    ctx.fillText(locationText, width - padding - 13, currentY + 32);
     ctx.textAlign = "left";
 
-    currentY += 75;
+    currentY += 66;
   }
 
   // ==================== TABLE HEADER ====================
@@ -216,21 +229,25 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   ctx.fillStyle = "#1C1917";
   ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
 
-  // Columns: No (50px), Item (380px), Spesifikasi (300px), Ukuran/Vol (140px), Tarif (130px), Subtotal (Right)
-  const colNo = padding + 20;
-  const colItem = padding + 60;
-  const colSpec = padding + 400;
-  const colVol = padding + 680;
-  const colPrice = padding + 820;
-  const colTotal = width - padding - 20;
+  // Columns for 1080px portrait mobile width (Anti-overlap & well-spaced):
+  // No (62), Item (94), Spec (465), Vol (735), Price (828), Total (1016 Right)
+  const colNo = padding + 14;     // 62
+  const colItem = padding + 46;   // 94
+  const colSpec = padding + 417;  // 465 (Lebar kolom Komponen = 371px)
+  const colVol = padding + 687;   // 735 (Lebar kolom Spesifikasi = 270px)
+  const colPrice = padding + 780; // 828 (Lebar kolom Ukuran = 93px)
+  const colTotal = width - padding - 16; // 1016 (Subtotal rata kanan)
 
-  ctx.fillText("No", colNo, currentY + 30);
-  ctx.fillText("Komponen Furniture", colItem, currentY + 30);
-  ctx.fillText("Spesifikasi & Model Bahan", colSpec, currentY + 30);
-  ctx.fillText("Ukuran / Volume", colVol, currentY + 30);
-  ctx.fillText("Tarif Satuan", colPrice, currentY + 30);
+  const maxItemWidth = colSpec - colItem - 16; // 355px
+  const maxSpecWidth = colVol - colSpec - 16;  // 254px
+
+  ctx.fillText("No", colNo, currentY + 29);
+  ctx.fillText("Komponen Furniture", colItem, currentY + 29);
+  ctx.fillText("Spesifikasi & Model Bahan", colSpec, currentY + 29);
+  ctx.fillText("Ukuran / Vol", colVol, currentY + 29);
+  ctx.fillText("Tarif Satuan", colPrice, currentY + 29);
   ctx.textAlign = "right";
-  ctx.fillText("Subtotal", colTotal, currentY + 30);
+  ctx.fillText("Subtotal", colTotal, currentY + 29);
   ctx.textAlign = "left";
 
   currentY += tableHeaderHeight;
@@ -262,15 +279,108 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
       ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
       ctx.fillText(String(index + 1), colNo, currentY + 42);
 
-      // Item Name
-      ctx.fillStyle = "#1C1917";
-      ctx.font = "600 14px 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(row.itemName, colItem, currentY + 34);
+      // Smart Item Name & Layout Splitting (Anti-overlap)
+      ctx.font = "600 13.5px 'Segoe UI', Roboto, sans-serif";
+      let itemLine1 = row.itemName;
+      let itemLine2: string | null = null;
+      let isLayoutBadge = false;
 
-      // Option & Model
-      ctx.fillStyle = "#57534E";
+      // Check if item contains layout tag like (Shape L), (Shape U), (Lurus)
+      const layoutMatch = row.itemName.match(/^(.*?)\s*(\((?:Shape L|Shape U|Lurus)\))$/i);
+      if (layoutMatch) {
+        itemLine1 = layoutMatch[1].trim();
+        itemLine2 = layoutMatch[2].trim();
+        isLayoutBadge = true;
+      } else if (ctx.measureText(row.itemName).width > maxItemWidth) {
+        // Word wrap into 2 lines if too long
+        const words = row.itemName.split(" ");
+        itemLine1 = "";
+        let line2Words: string[] = [];
+        for (let i = 0; i < words.length; i++) {
+          const testStr = itemLine1 ? `${itemLine1} ${words[i]}` : words[i];
+          if (ctx.measureText(testStr).width <= maxItemWidth) {
+            itemLine1 = testStr;
+          } else {
+            line2Words = words.slice(i);
+            break;
+          }
+        }
+        itemLine2 = line2Words.join(" ") || null;
+      }
+
+      // Safe truncate if still exceeds maxItemWidth
+      if (ctx.measureText(itemLine1).width > maxItemWidth) {
+        while (ctx.measureText(itemLine1 + "...").width > maxItemWidth && itemLine1.length > 5) {
+          itemLine1 = itemLine1.slice(0, -1);
+        }
+        itemLine1 += "...";
+      }
+      if (itemLine2 && ctx.measureText(itemLine2).width > maxItemWidth) {
+        while (ctx.measureText(itemLine2 + "...").width > maxItemWidth && itemLine2.length > 5) {
+          itemLine2 = itemLine2.slice(0, -1);
+        }
+        itemLine2 += "...";
+      }
+
+      // Render Item Name
+      if (itemLine2) {
+        ctx.fillStyle = "#1C1917";
+        ctx.font = "600 13px 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(itemLine1, colItem, currentY + 31);
+
+        if (isLayoutBadge) {
+          ctx.fillStyle = "#E5571F";
+          ctx.font = "bold 11.5px 'Segoe UI', Roboto, sans-serif";
+          ctx.fillText(`Layout: ${itemLine2.replace(/[()]/g, "")}`, colItem, currentY + 50);
+        } else {
+          ctx.fillStyle = "#57534E";
+          ctx.font = "500 11.5px 'Segoe UI', Roboto, sans-serif";
+          ctx.fillText(itemLine2, colItem, currentY + 50);
+        }
+      } else {
+        ctx.fillStyle = "#1C1917";
+        ctx.font = "600 13.5px 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(itemLine1, colItem, currentY + 42);
+      }
+
+      // Smart Spec & Model Splitting
       ctx.font = "12px 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(`${row.optionName} — ${row.modelName}`, colSpec, currentY + 34);
+      const combinedSpec = `${row.optionName} — ${row.modelName}`;
+      let specLine1 = combinedSpec;
+      let specLine2: string | null = null;
+
+      if (ctx.measureText(combinedSpec).width > maxSpecWidth) {
+        specLine1 = row.optionName;
+        specLine2 = row.modelName;
+
+        if (ctx.measureText(specLine1).width > maxSpecWidth) {
+          while (ctx.measureText(specLine1 + "...").width > maxSpecWidth && specLine1.length > 5) {
+            specLine1 = specLine1.slice(0, -1);
+          }
+          specLine1 += "...";
+        }
+        if (ctx.measureText(specLine2).width > maxSpecWidth) {
+          while (ctx.measureText(specLine2 + "...").width > maxSpecWidth && specLine2.length > 5) {
+            specLine2 = specLine2.slice(0, -1);
+          }
+          specLine2 += "...";
+        }
+      }
+
+      // Render Spec & Model
+      if (specLine2) {
+        ctx.fillStyle = "#44403C";
+        ctx.font = "500 12px 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(specLine1, colSpec, currentY + 31);
+
+        ctx.fillStyle = "#78716C";
+        ctx.font = "11px 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(specLine2, colSpec, currentY + 50);
+      } else {
+        ctx.fillStyle = "#57534E";
+        ctx.font = "12px 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(specLine1, colSpec, currentY + 42);
+      }
 
       // Measurement
       ctx.fillStyle = "#1C1917";
@@ -281,18 +391,18 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
           : row.unit === "M2"
             ? `${row.measurement} m²`
             : `${row.measurement} QTY`;
-      ctx.fillText(dimStr, colVol, currentY + 34);
+      ctx.fillText(dimStr, colVol, currentY + 42);
 
       // Unit Price
       ctx.fillStyle = "#57534E";
       ctx.font = "12px 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(formatRupiah(row.unitPrice), colPrice, currentY + 34);
+      ctx.fillText(formatRupiah(row.unitPrice), colPrice, currentY + 42);
 
       // Subtotal
       ctx.fillStyle = "#1C1917";
       ctx.font = "bold 14px 'Segoe UI', Roboto, sans-serif";
       ctx.textAlign = "right";
-      ctx.fillText(formatRupiah(row.subtotal), colTotal, currentY + 34);
+      ctx.fillText(formatRupiah(row.subtotal), colTotal, currentY + 42);
       ctx.textAlign = "left";
 
       currentY += rowHeight;
@@ -313,41 +423,41 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
   // Metrics (Left side of total box)
   ctx.fillStyle = "#57534E";
   ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("Total Komponen Aktif:", padding + 28, currentY + 45);
-  ctx.fillText("Total Volume Meter Lari (M1):", padding + 28, currentY + 75);
-  ctx.fillText("Total Luas Meter Persegi (M2):", padding + 28, currentY + 105);
+  ctx.fillText("Total Komponen Aktif:", padding + 24, currentY + 44);
+  ctx.fillText("Total Volume Meter Lari (M1):", padding + 24, currentY + 74);
+  ctx.fillText("Total Luas Meter Persegi (M2):", padding + 24, currentY + 104);
 
   ctx.fillStyle = "#1C1917";
   ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText(`${data.activeCount} Item`, padding + 240, currentY + 45);
-  ctx.fillText(`${data.totalM1} m1`, padding + 240, currentY + 75);
-  ctx.fillText(`${data.totalM2} m²`, padding + 240, currentY + 105);
+  ctx.fillText(`${data.activeCount} Item`, padding + 235, currentY + 44);
+  ctx.fillText(`${data.totalM1} m1`, padding + 235, currentY + 74);
+  ctx.fillText(`${data.totalM2} m²`, padding + 235, currentY + 104);
 
   // Grand Total (Right side of total box)
   ctx.textAlign = "right";
   ctx.fillStyle = "#78716C";
   ctx.font = "bold 12px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("TOTAL ESTIMASI BIAYA SEMENTARA", width - padding - 28, currentY + 45);
+  ctx.fillText("TOTAL ESTIMASI BIAYA SEMENTARA", width - padding - 24, currentY + 44);
 
   ctx.fillStyle = "#E5571F";
   ctx.font = "bold 32px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText(formatRupiah(data.grandTotal), width - padding - 28, currentY + 85);
+  ctx.fillText(formatRupiah(data.grandTotal), width - padding - 24, currentY + 84);
 
   ctx.fillStyle = "#A8A29E";
   ctx.font = "italic 11px 'Segoe UI', Roboto, sans-serif";
   ctx.fillText(
     "*Harga final disesuaikan setelah pengukuran aktual & konfirmasi detail desain",
-    width - padding - 28,
-    currentY + 115
+    width - padding - 24,
+    currentY + 114
   );
   ctx.textAlign = "left";
 
-  currentY += totalBoxHeight + 25;
+  currentY += totalBoxHeight + 22;
 
   // ==================== WORKSHOP STANDARDS ====================
   ctx.fillStyle = "#FAF9F6";
   ctx.beginPath();
-  ctx.roundRect(padding, currentY, contentWidth, notesHeight, 12);
+  ctx.roundRect(padding, currentY, contentWidth, standardsHeight, 12);
   ctx.fill();
   ctx.strokeStyle = "#E7E5E4";
   ctx.lineWidth = 1;
@@ -355,43 +465,102 @@ function createSimulationCanvas(data: SimulationExportData): HTMLCanvasElement {
 
   ctx.fillStyle = "#1C1917";
   ctx.font = "bold 14px 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("Standar Mutu & Spesifikasi Produksi Workshop:", padding + 24, currentY + 34);
+  ctx.fillText("Standar Mutu & Spesifikasi Produksi Workshop:", padding + 24, currentY + 32);
 
   ctx.fillStyle = "#57534E";
   ctx.font = "13px 'Segoe UI', Roboto, sans-serif";
   const notes = [
     "✓ Aksesoris engsel soft-close & rel laci presisi standar workshop terstandarisasi.",
     "✓ Bahan multiplek/blockboard berkualitas grade A dengan finishing HPL/Duco tahan lembap.",
-    "✓ Sudah termasuk visualisasi desain 3D & pemasangan langsung oleh tim teknis workshop berpengalaman.",
+    "✓ Sudah termasuk visualisasi desain 3D & pemasangan langsung oleh tim teknis workshop.",
     "✓ Standar mutu pengerjaan rapi, presisi, dan kokoh untuk kebutuhan interior jangka panjang.",
   ];
 
   notes.forEach((note, idx) => {
-    ctx.fillText(note, padding + 24, currentY + 65 + idx * 24);
+    ctx.fillText(note, padding + 24, currentY + 62 + idx * 26);
   });
 
-  currentY += notesHeight + 20;
+  currentY += standardsHeight + 20;
 
-  // ==================== FOOTER (WHITE LABEL) ====================
+  // ==================== WORKFLOW / TAHAPAN PENGERJAAN (PORTRAIT MOBILE ADAPTIVE) ====================
+  if (showWorkflow) {
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.roundRect(padding, currentY, contentWidth, workflowHeight, 12);
+    ctx.fill();
+    ctx.strokeStyle = "#E2E8F0";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = "#1C1917";
+    ctx.font = "bold 14px 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText("Alur & Tahapan Realisasi Furniture Custom:", padding + 24, currentY + 32);
+
+    const steps = [
+      { num: "01", title: "Simulasi & Konsultasi", desc: "Estimasi biaya transparan awal" },
+      { num: "02", title: "Survey Lokasi Aktual", desc: "Pengukuran presisi & cek bidang dinding" },
+      { num: "03", title: "Gambar Kerja 3D", desc: "Approval visual & pemilihan material" },
+      { num: "04", title: "Fabrikasi & Instalasi", desc: "Pengerjaan workshop & pemasangan rapi" },
+    ];
+
+    const stepColWidth = (contentWidth - 48) / 4;
+    steps.forEach((step, idx) => {
+      const stepX = padding + 24 + idx * stepColWidth;
+      
+      // Step badge
+      ctx.fillStyle = "#FFF7ED";
+      ctx.beginPath();
+      ctx.roundRect(stepX, currentY + 50, 32, 22, 6);
+      ctx.fill();
+      ctx.strokeStyle = "#FED7AA";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = "#EA580C";
+      ctx.font = "bold 11px 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(step.num, stepX + 8, currentY + 65);
+
+      // Step text
+      ctx.fillStyle = "#1E293B";
+      ctx.font = "bold 12px 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(step.title, stepX, currentY + 92);
+
+      ctx.fillStyle = "#64748B";
+      ctx.font = "11px 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(step.desc, stepX, currentY + 110);
+    });
+
+    currentY += workflowHeight + 20;
+  }
+
+  // ==================== FOOTER (NAMA AKUN & BRANDING USER) ====================
+  // Ensure footer is locked near the bottom of canvas
+  const footerY = Math.max(currentY + 24, totalHeight - padding - 16);
+
   ctx.strokeStyle = "#E7E5E4";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(padding, currentY);
-  ctx.lineTo(width - padding, currentY);
+  ctx.moveTo(padding, footerY - 22);
+  ctx.lineTo(width - padding, footerY - 22);
   ctx.stroke();
-
-  currentY += 24;
 
   ctx.fillStyle = "#A8A29E";
   ctx.font = "12px 'Segoe UI', Roboto, sans-serif";
   ctx.fillText(
-    "Dokumen estimasi ini dibuat secara digital dan transparan berdasarkan spesifikasi pilihan komponen.",
+    "Dokumen estimasi digital & transparan • Berdasarkan spesifikasi pilihan",
     padding,
-    currentY
+    footerY
   );
 
+  // Ganti teks footer sesuai dengan nama akun yang diisi user
+  const footerBrand = hasAccountName
+    ? data.accountName!.trim()
+    : "Estimasi Biaya Furniture & Interior Custom © 2026";
+
+  ctx.fillStyle = "#57534E";
+  ctx.font = "bold 13px 'Segoe UI', Roboto, sans-serif";
   ctx.textAlign = "right";
-  ctx.fillText("Estimasi Biaya Furniture & Interior Custom © 2026", width - padding, currentY);
+  ctx.fillText(footerBrand, width - padding, footerY);
   ctx.textAlign = "left";
 
   return canvas;
