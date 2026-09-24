@@ -871,7 +871,7 @@ export function CostCalculator() {
             displayName: `${acc.name.trim()} (${CATEGORY_CUSTOM_CONFIG[cat].defaultItemName})`,
             layout: "lurus",
             optionName: "Kustom",
-            modelName: `${q} unit @ ${formatRupiah(p)}`,
+            modelName: `${q} @ ${formatRupiah(p)}`,
             unitPrice: p,
             unit: "UNIT",
             measurement: q,
@@ -1430,18 +1430,78 @@ export function CostCalculator() {
                               Harga Satuan (Rp):
                             </label>
                             <input
-                              type="number"
-                              min="0"
+                              type="text"
+                              inputMode="numeric"
                               placeholder="0"
-                              value={acc.price === "" ? "" : acc.price}
-                              onChange={(e) =>
-                                updateCustomAccessory(
-                                  activeCategory,
-                                  acc.id,
-                                  "price",
-                                  e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value))
-                                )
+                              value={
+                                acc.price !== "" && typeof acc.price === "number" && !isNaN(acc.price)
+                                  ? new Intl.NumberFormat("id-ID").format(acc.price)
+                                  : ""
                               }
+                              onFocus={(e) => {
+                                if (e.target.value === "0") e.target.select();
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Backspace") {
+                                  const input = e.currentTarget;
+                                  const pos = input.selectionStart;
+                                  if (pos !== null && pos > 0 && input.value[pos - 1] === ".") {
+                                    e.preventDefault();
+                                    const raw = input.value.slice(0, pos - 2) + input.value.slice(pos);
+                                    const digits = raw.replace(/\D/g, "");
+                                    const num = digits ? parseInt(digits, 10) : "";
+                                    updateCustomAccessory(activeCategory, acc.id, "price", num);
+
+                                    const newDigitsBefore = raw.slice(0, pos - 2).replace(/\D/g, "").length;
+                                    const formatted = num === "" ? "" : new Intl.NumberFormat("id-ID").format(num);
+                                    let targetPos = 0;
+                                    let count = 0;
+                                    for (let i = 0; i < formatted.length; i++) {
+                                      if (/\d/.test(formatted[i])) count++;
+                                      if (count === newDigitsBefore) {
+                                        targetPos = i + 1;
+                                        break;
+                                      }
+                                    }
+                                    requestAnimationFrame(() => {
+                                      input.setSelectionRange(targetPos, targetPos);
+                                    });
+                                  }
+                                }
+                              }}
+                              onChange={(e) => {
+                                const input = e.target;
+                                const raw = input.value;
+                                const cursorPos = input.selectionStart ?? raw.length;
+                                const digitsBeforeCursor = raw.slice(0, cursorPos).replace(/\D/g, "").length;
+
+                                const digits = raw.replace(/\D/g, "");
+                                if (!digits) {
+                                  updateCustomAccessory(activeCategory, acc.id, "price", "");
+                                  return;
+                                }
+
+                                const parsed = parseInt(digits, 10);
+                                const validNum = isNaN(parsed) ? "" : parsed;
+                                updateCustomAccessory(activeCategory, acc.id, "price", validNum);
+
+                                const formatted = validNum === "" ? "" : new Intl.NumberFormat("id-ID").format(validNum);
+                                let targetPos = 0;
+                                let digitCount = 0;
+                                for (let i = 0; i < formatted.length; i++) {
+                                  if (/\d/.test(formatted[i])) digitCount++;
+                                  if (digitCount === digitsBeforeCursor) {
+                                    targetPos = i + 1;
+                                    break;
+                                  }
+                                }
+                                if (targetPos === 0 && digitsBeforeCursor === 0) targetPos = 0;
+                                if (digitCount < digitsBeforeCursor) targetPos = formatted.length;
+
+                                requestAnimationFrame(() => {
+                                  input.setSelectionRange(targetPos, targetPos);
+                                });
+                              }}
                               className="w-full text-xs sm:text-sm font-bold text-center rounded-xl border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none"
                             />
                           </div>
@@ -1449,7 +1509,7 @@ export function CostCalculator() {
                           {/* Qty (Supports comma & decimal like 2.5) */}
                           <div className="sm:col-span-3">
                             <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                              Jumlah (Qty):
+                              QTY / Meter:
                             </label>
                             <div className="flex items-center gap-1.5">
                               <button
@@ -1552,13 +1612,13 @@ export function CostCalculator() {
 
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground gap-1.5 pt-1.5 border-t border-border/40">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-semibold text-foreground">Jumlah / Qty:</span>
+                            <span className="font-semibold text-foreground">QTY / Meter:</span>
                             <span className="font-bold text-foreground bg-background px-2 py-0.5 rounded-md border border-border/60">
-                              {q > 0 ? `${q} unit` : "0 unit"}
+                              {q > 0 ? `${q}` : "0"}
                             </span>
                           </div>
                           <div className="text-[11px] text-muted-foreground shrink-0">
-                            Harga Satuan: {p > 0 ? formatRupiah(p) : "Rp 0"} / unit
+                            Harga Satuan: {p > 0 ? formatRupiah(p) : "Rp 0"}
                           </div>
                         </div>
                       </div>
@@ -2889,6 +2949,14 @@ function UnitEditor({
                 <div>
                   <div className="text-[11px] text-muted-foreground mb-0.5">Panjang / P (m)</div>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateDimension("length", -0.5, 0)}
+                      className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                      title="Kurangi 0.5m"
+                    >
+                      <Minus className="size-3" />
+                    </button>
                     <input
                       type="number"
                       step="0.1"
@@ -2905,6 +2973,14 @@ function UnitEditor({
                       }
                       className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
                     />
+                    <button
+                      type="button"
+                      onClick={() => onUpdateDimension("length", 0.5, 0)}
+                      className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                      title="Tambah 0.5m"
+                    >
+                      <Plus className="size-3" />
+                    </button>
                   </div>
                 </div>
                 <div>
@@ -2912,6 +2988,14 @@ function UnitEditor({
                     {item.id === "dipan_ranjang" ? "Lebar / L (m)" : "Tinggi / T (m)"}
                   </div>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateDimension("height", -0.1, 0)}
+                      className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                      title="Kurangi 0.1m"
+                    >
+                      <Minus className="size-3" />
+                    </button>
                     <input
                       type="number"
                       step="0.1"
@@ -2928,6 +3012,14 @@ function UnitEditor({
                       }
                       className="w-full text-center font-bold text-xs rounded-lg border border-border bg-background py-1.5 text-foreground focus:border-primary focus:outline-none"
                     />
+                    <button
+                      type="button"
+                      onClick={() => onUpdateDimension("height", 0.1, 0)}
+                      className="size-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground transition-colors cursor-pointer shrink-0"
+                      title="Tambah 0.1m"
+                    >
+                      <Plus className="size-3" />
+                    </button>
                   </div>
                 </div>
               </div>
