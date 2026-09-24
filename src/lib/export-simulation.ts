@@ -77,6 +77,7 @@ export function createSimulationCanvas(
   const rowHeight = 88;
   const rowsHeight = Math.max(1, data.breakdown.length) * rowHeight;
   const totalBoxHeight = 180;
+
   const standardsHeight = 225;
   const workflowHeight = 185;
   const footerAreaHeight = 74;

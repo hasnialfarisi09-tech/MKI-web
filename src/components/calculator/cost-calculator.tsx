@@ -7,11 +7,14 @@ import {
   Building2,
   Check,
   ChevronDown,
+  Copy,
   Download,
   Eye,
   FileImage,
   FileText,
   Flame,
+  FolderOpen,
+  History,
   Info,
   Layers,
   Loader2,
@@ -21,6 +24,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Search,
   Sparkles,
   Trash2,
   Tv,
@@ -35,6 +39,7 @@ import {
   FurnitureItemConfig,
   formatRupiah,
   KITCHEN_ITEMS,
+  MaterialOption,
   OTHER_CATEGORIES,
   PROVINCES_DATA,
   Region,
@@ -243,6 +248,138 @@ export function calculateCabinetLayout(
 
 export const calculateKitchenCabinetM1 = calculateCabinetLayout;
 
+export type MaterialTier = "hemat" | "standar" | "premium";
+
+export function getOptionTier(opt: MaterialOption): MaterialTier | null {
+  const name = opt.name.toLowerCase();
+  const id = opt.id.toLowerCase();
+  const model = opt.model.toLowerCase();
+
+  // Premium: PVC or Duco or Alumunium
+  if (name.includes("pvc") || id.includes("pvc")) return "premium";
+  if (name.includes("duco") || id.includes("duco") || model.includes("duco")) return "premium";
+  if (name.includes("alumunium") || name.includes("aluminium") || id.includes("alum")) return "premium";
+
+  // Standar: Multiplek / Plywood HPL (not Duco / Industrial)
+  if (
+    (name.includes("multiplek") || name.includes("plywood") || id.includes("mult_") || id.includes("lemari_mult")) &&
+    !name.includes("industrial") &&
+    !id.includes("industrial")
+  ) {
+    return "standar";
+  }
+
+  // Hemat: Block Board
+  if (
+    name.includes("block board") ||
+    name.includes("blockboard") ||
+    id.includes("bb_") ||
+    id.includes("_bb") ||
+    id.includes("lemari_bb")
+  ) {
+    return "hemat";
+  }
+
+  return null;
+}
+
+export function findOptionForTier(
+  item: FurnitureItemConfig,
+  currentOptionId: string,
+  targetTier: MaterialTier
+): MaterialOption | undefined {
+  if (!item.options || item.options.length === 0) return undefined;
+  const currentOpt = item.options.find((o) => o.id === currentOptionId) ?? item.options[0];
+  if (!currentOpt) return undefined;
+
+  // Deteksi gaya / style saat ini agar tidak berubah saat ganti material
+  const currentModel = currentOpt.model.toLowerCase();
+  const isSemi = currentModel.includes("semi");
+  const isKlasik = !isSemi && currentModel.includes("klasik");
+  const targetStyle = isSemi ? "semi" : isKlasik ? "klasik" : "min";
+
+  let candidates: MaterialOption[] = [];
+
+  if (targetTier === "hemat") {
+    candidates = item.options.filter((opt) => {
+      const n = opt.name.toLowerCase();
+      const id = opt.id.toLowerCase();
+      return (
+        n.includes("block board") ||
+        n.includes("blockboard") ||
+        id.includes("bb_") ||
+        id.includes("_bb") ||
+        id.includes("lemari_bb")
+      );
+    });
+  } else if (targetTier === "standar") {
+    candidates = item.options.filter((opt) => {
+      const n = opt.name.toLowerCase();
+      const id = opt.id.toLowerCase();
+      const m = opt.model.toLowerCase();
+      const isMult =
+        n.includes("multiplek") ||
+        n.includes("plywood") ||
+        id.includes("mult_") ||
+        id.includes("lemari_mult");
+      const isDuco = n.includes("duco") || id.includes("duco") || m.includes("duco");
+      const isIndustrial = n.includes("industrial") || id.includes("industrial");
+      return isMult && !isDuco && !isIndustrial;
+    });
+  } else if (targetTier === "premium") {
+    // 1. Prioritas utama: PVC Board
+    candidates = item.options.filter((opt) => {
+      const n = opt.name.toLowerCase();
+      const id = opt.id.toLowerCase();
+      return n.includes("pvc") || id.includes("pvc");
+    });
+    // 2. Prioritas kedua jika belum ada PVC (misal lemari, island, backdrop): Finishing Duco Mewah
+    if (candidates.length === 0) {
+      candidates = item.options.filter((opt) => {
+        const n = opt.name.toLowerCase();
+        const id = opt.id.toLowerCase();
+        const m = opt.model.toLowerCase();
+        return n.includes("duco") || id.includes("duco") || m.includes("duco");
+      });
+    }
+    // 3. Prioritas ketiga jika ada varian aluminium
+    if (candidates.length === 0) {
+      candidates = item.options.filter((opt) => {
+        const n = opt.name.toLowerCase();
+        const id = opt.id.toLowerCase();
+        return n.includes("alumunium") || n.includes("aluminium") || id.includes("alum");
+      });
+    }
+  }
+
+  // Jika item tidak memiliki opsi tier ini (misal aksesoris, granit top table, keramik backsplash), pertahankan opsi saat ini
+  if (candidates.length === 0) {
+    return currentOpt;
+  }
+
+  // Cocokkan model / gaya (semi klasik, klasik, atau minimalis)
+  if (targetStyle === "semi") {
+    const matched = candidates.find((opt) => opt.model.toLowerCase().includes("semi"));
+    if (matched) return matched;
+  } else if (targetStyle === "klasik") {
+    const matched = candidates.find(
+      (opt) =>
+        opt.model.toLowerCase().includes("klasik") &&
+        !opt.model.toLowerCase().includes("semi")
+    );
+    if (matched) return matched;
+  } else {
+    // minimalis / default
+    const matched = candidates.find((opt) => {
+      const m = opt.model.toLowerCase();
+      return m.includes("min") || (!m.includes("semi") && !m.includes("klasik"));
+    });
+    if (matched) return matched;
+  }
+
+  return candidates[0];
+}
+
 export type ItemInstance = {
   instanceId: string;
   itemId: string;
@@ -268,6 +405,80 @@ type CustomAccessory = {
   price: number | "";
   qty: string | number;
 };
+
+export type SavedSimulation = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  grandTotal: number;
+  totalM1: number;
+  totalM2: number;
+  activeCount: number;
+  provinceId: string;
+  cityId: string;
+  accountName?: string;
+  clientName?: string;
+  clientAddress?: string;
+  exportPrimaryColor?: string;
+  exportSecondaryColor?: string;
+  itemsState: CalculatorState;
+  customAccessories: Record<CategoryKey, CustomAccessory[]>;
+};
+
+const SAVED_SIMULATIONS_STORAGE_KEY = "mki_saved_simulations_v1";
+const EXPORT_COLORS_STORAGE_KEY = "mki_export_doc_colors_v1";
+
+interface SavedExportColors {
+  primary: string;
+  secondary: string;
+}
+
+function getSavedExportColors(): SavedExportColors | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(EXPORT_COLORS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.primary === "string" && typeof parsed.secondary === "string") {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveExportColorsToStorage(primary: string, secondary: string) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(EXPORT_COLORS_STORAGE_KEY, JSON.stringify({ primary, secondary }));
+  } catch (err) {
+    console.error("Gagal menyimpan preferensi warna dokumen ke storage:", err);
+  }
+}
+
+function getSavedSimulationsFromStorage(): SavedSimulation[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SAVED_SIMULATIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error("Gagal membaca riwayat simulasi dari storage:", err);
+    return [];
+  }
+}
+
+function saveSimulationsToStorage(simulations: SavedSimulation[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SAVED_SIMULATIONS_STORAGE_KEY, JSON.stringify(simulations));
+  } catch (err) {
+    console.error("Gagal menyimpan riwayat simulasi ke storage:", err);
+  }
+}
 
 function parseQty(val: number | string | ""): number {
   if (typeof val === "number") return isNaN(val) ? 0 : val;
@@ -483,6 +694,43 @@ export function CostCalculator() {
   // State: Export Document Theme Colors (Primary & Secondary)
   const [exportPrimaryColor, setExportPrimaryColor] = useState<string>("#E5571F");
   const [exportSecondaryColor, setExportSecondaryColor] = useState<string>("#1C1917");
+  const isColorsInitialized = useRef(false);
+
+  // State: Riwayat Estimasi Otomatis (LocalStorage)
+  const [savedSimulations, setSavedSimulations] = useState<SavedSimulation[]>([]);
+  const [activeSimulationId, setActiveSimulationId] = useState<string | null>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Load riwayat dan preferensi warna terakhir dari LocalStorage saat component mount
+  useEffect(() => {
+    setSavedSimulations(getSavedSimulationsFromStorage());
+    const savedColors = getSavedExportColors();
+    if (savedColors) {
+      setExportPrimaryColor(savedColors.primary);
+      setExportSecondaryColor(savedColors.secondary);
+    }
+    isColorsInitialized.current = true;
+  }, []);
+
+  // Simpan preferensi warna dokumen ke LocalStorage setiap kali user mengganti warna
+  useEffect(() => {
+    if (!isColorsInitialized.current) return;
+    saveExportColorsToStorage(exportPrimaryColor, exportSecondaryColor);
+  }, [exportPrimaryColor, exportSecondaryColor]);
+
+  // Auto-dismiss notifikasi toast
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
+  const activeSimulation = useMemo(
+    () => savedSimulations.find((s) => s.id === activeSimulationId) ?? null,
+    [savedSimulations, activeSimulationId]
+  );
 
   // State: Identity & Client info (initialized to empty text)
   const [accountName, setAccountName] = useState<string>("");
@@ -772,9 +1020,146 @@ export function CostCalculator() {
     setAccountName("");
     setClientName("");
     setClientAddress("");
-    setExportPrimaryColor("#E5571F");
-    setExportSecondaryColor("#1C1917");
+    const savedColors = getSavedExportColors();
+    if (savedColors) {
+      setExportPrimaryColor(savedColors.primary);
+      setExportSecondaryColor(savedColors.secondary);
+    } else {
+      setExportPrimaryColor("#E5571F");
+      setExportSecondaryColor("#1C1917");
+    }
+    setActiveSimulationId(null);
   };
+
+  // Otomatis simpan / perbarui ke Riwayat Proyek saat user melakukan Export JPG atau PDF
+  const autoSaveToHistory = () => {
+    const now = Date.now();
+    const finalClientName = clientName.trim() || "Klien Umum";
+    const finalClientAddress = clientAddress.trim() || selectedCity.name;
+    const finalTitle = clientName.trim()
+      ? `${clientName.trim()}${clientAddress.trim() ? ` — ${clientAddress.trim()}` : ` (${selectedCity.name})`}`
+      : `Klien Umum (${selectedCity.name})`;
+
+    if (activeSimulationId) {
+      // Perbarui proyek yang sedang diedit
+      const updatedList = savedSimulations.map((sim) => {
+        if (sim.id === activeSimulationId) {
+          return {
+            ...sim,
+            title: finalTitle,
+            clientName: finalClientName,
+            clientAddress: finalClientAddress,
+            updatedAt: now,
+            grandTotal: calculationSummary.grandTotal,
+            totalM1: calculationSummary.totalM1,
+            totalM2: calculationSummary.totalM2,
+            activeCount: calculationSummary.activeCount,
+            provinceId: selectedProvinceId,
+            cityId: selectedCityId,
+            accountName: accountName.trim() || undefined,
+            exportPrimaryColor,
+            exportSecondaryColor,
+            itemsState,
+            customAccessories,
+          };
+        }
+        return sim;
+      });
+
+      setSavedSimulations(updatedList);
+      saveSimulationsToStorage(updatedList);
+      setToastMessage(`Estimasi ${finalClientName} berhasil diekspor & diperbarui di Riwayat!`);
+      return;
+    }
+
+    // Buat entri proyek baru di riwayat
+    const newSim: SavedSimulation = {
+      id: `sim_${now}_${Math.random().toString(36).substring(2, 7)}`,
+      title: finalTitle,
+      clientName: finalClientName,
+      clientAddress: finalClientAddress,
+      createdAt: now,
+      updatedAt: now,
+      grandTotal: calculationSummary.grandTotal,
+      totalM1: calculationSummary.totalM1,
+      totalM2: calculationSummary.totalM2,
+      activeCount: calculationSummary.activeCount,
+      provinceId: selectedProvinceId,
+      cityId: selectedCityId,
+      accountName: accountName.trim() || undefined,
+      exportPrimaryColor,
+      exportSecondaryColor,
+      itemsState,
+      customAccessories,
+    };
+
+    const nextList = [newSim, ...savedSimulations];
+    setSavedSimulations(nextList);
+    saveSimulationsToStorage(nextList);
+    setActiveSimulationId(newSim.id);
+    setToastMessage(`Estimasi ${finalClientName} berhasil diekspor & tersimpan di Riwayat!`);
+  };
+
+  const handleLoadSimulation = (sim: SavedSimulation) => {
+    setSelectedProvinceId(sim.provinceId);
+    setSelectedCityId(sim.cityId);
+    setAccountName(sim.accountName || "");
+    setClientName(sim.clientName || "");
+    setClientAddress(sim.clientAddress || "");
+    setItemsState(sim.itemsState);
+    setCustomAccessories(sim.customAccessories);
+    if (sim.exportPrimaryColor) setExportPrimaryColor(sim.exportPrimaryColor);
+    if (sim.exportSecondaryColor) setExportSecondaryColor(sim.exportSecondaryColor);
+    setActiveSimulationId(sim.id);
+    setIsHistoryModalOpen(false);
+    setToastMessage(`Proyek "${sim.clientName || sim.title}" berhasil dimuat! Anda dapat mengedit sekarang.`);
+
+    if (summaryCardRef.current) {
+      summaryCardRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleDuplicateSimulation = (simId: string) => {
+    const target = savedSimulations.find((s) => s.id === simId);
+    if (!target) return;
+    const now = Date.now();
+    const clientCopy = target.clientName ? `${target.clientName} (Salinan)` : "Klien Umum (Salinan)";
+    const clone: SavedSimulation = {
+      ...target,
+      id: `sim_${now}_${Math.random().toString(36).substring(2, 7)}`,
+      title: `${target.title} (Salinan)`,
+      clientName: clientCopy,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const nextList = [clone, ...savedSimulations];
+    setSavedSimulations(nextList);
+    saveSimulationsToStorage(nextList);
+    setToastMessage(`Proyek "${target.clientName || target.title}" berhasil digandakan!`);
+  };
+
+  const handleDeleteSimulation = (simId: string) => {
+    const target = savedSimulations.find((s) => s.id === simId);
+    const nextList = savedSimulations.filter((s) => s.id !== simId);
+    setSavedSimulations(nextList);
+    saveSimulationsToStorage(nextList);
+    if (activeSimulationId === simId) {
+      setActiveSimulationId(null);
+    }
+    setToastMessage(`Proyek ${target ? `"${target.clientName || target.title}"` : ""} telah dihapus.`);
+  };
+
+  const filteredSimulations = useMemo(() => {
+    if (!historySearchQuery.trim()) return savedSimulations;
+    const q = historySearchQuery.toLowerCase();
+    return savedSimulations.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        (s.clientName && s.clientName.toLowerCase().includes(q)) ||
+        (s.clientAddress && s.clientAddress.toLowerCase().includes(q)) ||
+        (s.accountName && s.accountName.toLowerCase().includes(q))
+    );
+  }, [savedSimulations, historySearchQuery]);
 
   // Compute Grand Total, Total M1, Total M2, and Active Breakdown
   const calculationSummary = useMemo(() => {
@@ -1027,6 +1412,165 @@ export function CostCalculator() {
     }));
   };
 
+  // Perbandingan Cerdas Alternatif Bahan (Smart Budget Comparison)
+  const comparisonTiers = useMemo(() => {
+    if (calculationSummary.grandTotal <= 0) {
+      return {
+        hematTotal: 0,
+        standarTotal: 0,
+        premiumTotal: 0,
+        currentTier: "standar" as const,
+        tiers: {
+          hemat: {
+            label: "Paket Hemat",
+            material: "Block Board 18mm — Finishing HPL",
+            tag: "Ekonomis",
+            total: 0,
+            diff: 0,
+          },
+          standar: {
+            label: "Paket Standar",
+            material: "Multiplek / Plywood — Finishing HPL",
+            tag: "Paling Populer",
+            total: 0,
+            diff: 0,
+          },
+          premium: {
+            label: "Paket Premium",
+            material: "PVC Board 100% Anti Rayap / Duco",
+            tag: "Anti Rayap & Air",
+            total: 0,
+            diff: 0,
+          },
+        },
+      };
+    }
+
+    // Hitung custom accessories aktif (tetap konstan di semua tier)
+    let customAccTotal = 0;
+    for (const cat of Object.keys(customAccessories) as CategoryKey[]) {
+      for (const acc of customAccessories[cat]) {
+        const p = typeof acc.price === "number" ? acc.price : 0;
+        const q = parseQty(acc.qty);
+        if (acc.name.trim() !== "" && p > 0 && q > 0) {
+          customAccTotal += Math.round(p * q);
+        }
+      }
+    }
+
+    const tierTotals = {
+      hemat: 0,
+      standar: 0,
+      premium: 0,
+    };
+
+    let totalTierCapable = 0;
+    const tierCounts = {
+      hemat: 0,
+      standar: 0,
+      premium: 0,
+    };
+
+    const targetTiers: MaterialTier[] = ["hemat", "standar", "premium"];
+
+    for (const item of ALL_ITEMS) {
+      const instances = itemsState[item.id] || [];
+
+      instances.forEach((inst) => {
+        if (!inst?.enabled) return;
+
+        const currentCalc = getInstanceCalculation(item, inst, region);
+        if (currentCalc.subtotal <= 0) return;
+
+        // Cek tier bahan yang saat ini aktif
+        const currentOpt =
+          item.options.find((opt) => opt.id === inst.optionId) ?? item.options[0];
+        const detectedTier = currentOpt ? getOptionTier(currentOpt) : null;
+        if (detectedTier) {
+          totalTierCapable += 1;
+          tierCounts[detectedTier] += 1;
+        }
+
+        // Hitung estimasi untuk setiap tier alternatif
+        for (const tier of targetTiers) {
+          const targetOpt = findOptionForTier(item, inst.optionId, tier);
+          if (targetOpt && targetOpt.id !== inst.optionId) {
+            const targetCalc = getInstanceCalculation(
+              item,
+              { ...inst, optionId: targetOpt.id },
+              region
+            );
+            tierTotals[tier] += targetCalc.subtotal;
+          } else {
+            tierTotals[tier] += currentCalc.subtotal;
+          }
+        }
+      });
+    }
+
+    const hematTotal = tierTotals.hemat + customAccTotal;
+    const standarTotal = tierTotals.standar + customAccTotal;
+    const premiumTotal = tierTotals.premium + customAccTotal;
+
+    let currentTier: "hemat" | "standar" | "premium" | "custom" = "custom";
+    if (totalTierCapable > 0) {
+      if (tierCounts.hemat === totalTierCapable) currentTier = "hemat";
+      else if (tierCounts.standar === totalTierCapable) currentTier = "standar";
+      else if (tierCounts.premium === totalTierCapable) currentTier = "premium";
+    }
+
+    return {
+      hematTotal,
+      standarTotal,
+      premiumTotal,
+      currentTier,
+      tiers: {
+        hemat: {
+          label: "Paket Hemat",
+          material: "Block Board 18mm — Finishing HPL",
+          tag: "Ekonomis",
+          total: hematTotal,
+          diff: hematTotal - calculationSummary.grandTotal,
+        },
+        standar: {
+          label: "Paket Standar",
+          material: "Multiplek / Plywood — Finishing HPL",
+          tag: "Paling Populer",
+          total: standarTotal,
+          diff: standarTotal - calculationSummary.grandTotal,
+        },
+        premium: {
+          label: "Paket Premium",
+          material: "PVC Board 100% Anti Rayap / Duco",
+          tag: "Anti Rayap & Air",
+          total: premiumTotal,
+          diff: premiumTotal - calculationSummary.grandTotal,
+        },
+      },
+    };
+  }, [itemsState, region, customAccessories, calculationSummary.grandTotal]);
+
+  // Aksi 1-Klik: Terapkan bahan tier ke seluruh komponen aktif
+  const applyMaterialTier = (tier: MaterialTier) => {
+    setItemsState((prev) => {
+      const nextState: CalculatorState = {};
+      for (const item of ALL_ITEMS) {
+        const instances = prev[item.id] || [];
+        nextState[item.id] = instances.map((inst) => {
+          const targetOpt = findOptionForTier(item, inst.optionId, tier);
+          if (targetOpt && targetOpt.id !== inst.optionId) {
+            return {
+              ...inst,
+              optionId: targetOpt.id,
+            };
+          }
+          return inst;
+        });
+      }
+      return nextState;
+    });
+  };
+
   // Memoized export simulation payload for download and live preview
   const exportSimulationData: SimulationExportData = useMemo(() => {
     return {
@@ -1141,6 +1685,8 @@ export function CostCalculator() {
         await exportSimulationAsPdf(exportSimulationData);
       }
       track("simulation_export", { format, city: selectedCity.name });
+      // Otomatis simpan / perbarui ke Riwayat Proyek saat user melakukan Export JPG atau PDF
+      autoSaveToHistory();
     } catch (err) {
       console.error("Gagal export estimasi:", err);
       alert("Terjadi kendala saat menyiapkan file. Silakan coba lagi.");
@@ -1329,25 +1875,64 @@ export function CostCalculator() {
         </div>
       </div>
 
+      {/* Active Project Banner (Mode Edit Riwayat) */}
+      {activeSimulation && (
+        <div className="p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-primary/10 border-2 border-primary/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-2xs mb-6 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="size-2.5 rounded-full bg-primary animate-ping shrink-0" />
+            <div className="min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-bold text-primary uppercase tracking-wider block">
+                Sedang Mengedit Proyek:
+              </span>
+              <h4 className="text-sm sm:text-base font-display font-bold text-foreground truncate">
+                {activeSimulation.clientName || "Klien Umum"} {activeSimulation.clientAddress ? `— ${activeSimulation.clientAddress}` : ""}
+              </h4>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Perubahan otomatis terupdate ke Riwayat saat Anda mengekspor (JPG / PDF).
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveSimulationId(null)}
+              className="px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium transition-colors cursor-pointer"
+              title="Tutup mode edit proyek ini (data kalkulasi saat ini tetap ada)"
+            >
+              Keluar Mode Edit
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid: Item Selectors (Left) + Live Sticky Summary (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Component Cards */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-display font-bold text-foreground flex items-center gap-2">
+            <h3 className="text-lg font-display font-bold text-foreground">
               <span>Pilihan Komponen</span>
-              <span className="text-xs font-sans font-normal px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                Semua Opsional
-              </span>
             </h3>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <RotateCcw className="size-3.5" />
-              <span>Reset Simulasi</span>
-            </button>
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setIsHistoryModalOpen(true)}
+                className="text-xs text-primary hover:text-primary/80 inline-flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
+                title="Buka daftar riwayat estimasi proyek yang pernah disimpan"
+              >
+                <FolderOpen className="size-3.5" />
+                <span>Riwayat ({savedSimulations.length})</span>
+              </button>
+              <span className="text-border select-none">|</span>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="size-3.5" />
+                <span>Reset Simulasi</span>
+              </button>
+            </div>
           </div>
 
           {/* Render Active Category Items */}
@@ -1933,13 +2518,48 @@ export function CostCalculator() {
                 <span className="text-[11px] font-medium text-muted-foreground">Pilihan Format</span>
               </div>
 
-              {/* Kustomisasi Warna Dokumen (Primer & Sekunder) */}
-              <div className="mb-3 p-3 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                    <Palette className="size-3.5 text-primary" />
-                    <span>Warna Dokumen (JPG & PDF):</span>
+              {/* Kustomisasi Tema Warna Dokumen - Ultra Minimalis */}
+              <div className="mb-3 px-3.5 py-2.5 rounded-2xl bg-muted/30 border border-border/70 flex items-center justify-between shadow-2xs">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Palette className="size-3.5 text-primary" />
+                  <span>Warna Dokumen</span>
+                </div>
+
+                {/* Swatches Aktif & Pemilih Warna Kustom */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center -space-x-1 p-0.5 rounded-full bg-background border border-border/80 shadow-2xs">
+                    <label
+                      className="relative size-5 rounded-full overflow-hidden cursor-pointer border border-background shadow-2xs hover:scale-110 transition-transform"
+                      title={`Warna Primer: ${exportPrimaryColor} (Klik untuk ubah)`}
+                    >
+                      <input
+                        type="color"
+                        value={exportPrimaryColor}
+                        onChange={(e) => setExportPrimaryColor(e.target.value)}
+                        className="absolute -top-2 -left-2 size-8 cursor-pointer opacity-0"
+                      />
+                      <span
+                        className="block size-full rounded-full"
+                        style={{ backgroundColor: exportPrimaryColor }}
+                      />
+                    </label>
+                    <label
+                      className="relative size-5 rounded-full overflow-hidden cursor-pointer border border-background shadow-2xs hover:scale-110 transition-transform"
+                      title={`Warna Sekunder: ${exportSecondaryColor} (Klik untuk ubah)`}
+                    >
+                      <input
+                        type="color"
+                        value={exportSecondaryColor}
+                        onChange={(e) => setExportSecondaryColor(e.target.value)}
+                        className="absolute -top-2 -left-2 size-8 cursor-pointer opacity-0"
+                      />
+                      <span
+                        className="block size-full rounded-full"
+                        style={{ backgroundColor: exportSecondaryColor }}
+                      />
+                    </label>
                   </div>
+
                   {(exportPrimaryColor.toLowerCase() !== "#e5571f" ||
                     exportSecondaryColor.toLowerCase() !== "#1c1917") && (
                     <button
@@ -1949,139 +2569,11 @@ export function CostCalculator() {
                         setExportSecondaryColor("#1C1917");
                       }}
                       className="text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                      title="Kembalikan warna default"
+                      title="Kembalikan warna default (Terracotta MKI)"
                     >
-                      Reset Default
+                      Reset
                     </button>
                   )}
-                </div>
-
-                {/* Live Color Bar Preview */}
-                <div className="h-1.5 w-full rounded-full overflow-hidden flex shadow-2xs">
-                  <div
-                    className="h-full flex-1 transition-colors"
-                    style={{ backgroundColor: exportPrimaryColor }}
-                    title={`Warna Primer: ${exportPrimaryColor}`}
-                  />
-                  <div
-                    className="h-full flex-1 transition-colors"
-                    style={{ backgroundColor: exportSecondaryColor }}
-                    title={`Warna Sekunder: ${exportSecondaryColor}`}
-                  />
-                </div>
-
-                {/* Color Pickers: Primer & Sekunder */}
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Warna Primer */}
-                  <div>
-                    <label className="block text-[10px] font-semibold text-muted-foreground mb-1">
-                      Warna Primer:
-                    </label>
-                    <div className="flex items-center gap-1.5 p-1.5 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors">
-                      <label className="relative size-6 rounded-lg overflow-hidden shrink-0 cursor-pointer border border-border/60 shadow-2xs">
-                        <input
-                          type="color"
-                          value={exportPrimaryColor}
-                          onChange={(e) => setExportPrimaryColor(e.target.value)}
-                          className="absolute -top-2 -left-2 size-10 cursor-pointer opacity-0"
-                          title="Pilih warna primer"
-                        />
-                        <span
-                          className="block size-full rounded-lg"
-                          style={{ backgroundColor: exportPrimaryColor }}
-                        />
-                      </label>
-                      <input
-                        type="text"
-                        value={exportPrimaryColor.toUpperCase()}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (/^#[0-9A-Fa-f]{0,6}$/.test(val) || /^[0-9A-Fa-f]{0,6}$/.test(val)) {
-                            setExportPrimaryColor(val.startsWith("#") ? val : `#${val}`);
-                          }
-                        }}
-                        maxLength={7}
-                        className="w-full text-[11px] font-mono font-bold text-foreground bg-transparent focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Warna Sekunder */}
-                  <div>
-                    <label className="block text-[10px] font-semibold text-muted-foreground mb-1">
-                      Warna Sekunder:
-                    </label>
-                    <div className="flex items-center gap-1.5 p-1.5 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors">
-                      <label className="relative size-6 rounded-lg overflow-hidden shrink-0 cursor-pointer border border-border/60 shadow-2xs">
-                        <input
-                          type="color"
-                          value={exportSecondaryColor}
-                          onChange={(e) => setExportSecondaryColor(e.target.value)}
-                          className="absolute -top-2 -left-2 size-10 cursor-pointer opacity-0"
-                          title="Pilih warna sekunder"
-                        />
-                        <span
-                          className="block size-full rounded-lg"
-                          style={{ backgroundColor: exportSecondaryColor }}
-                        />
-                      </label>
-                      <input
-                        type="text"
-                        value={exportSecondaryColor.toUpperCase()}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (/^#[0-9A-Fa-f]{0,6}$/.test(val) || /^[0-9A-Fa-f]{0,6}$/.test(val)) {
-                            setExportSecondaryColor(val.startsWith("#") ? val : `#${val}`);
-                          }
-                        }}
-                        maxLength={7}
-                        className="w-full text-[11px] font-mono font-bold text-foreground bg-transparent focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Preset Badges */}
-                <div>
-                  <div className="text-[10px] font-semibold text-muted-foreground mb-1">
-                    Preset Warna:
-                  </div>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {EXPORT_COLOR_PRESETS.map((preset) => {
-                      const isActive =
-                        exportPrimaryColor.toLowerCase() === preset.primary.toLowerCase() &&
-                        exportSecondaryColor.toLowerCase() === preset.secondary.toLowerCase();
-                      return (
-                        <button
-                          key={preset.name}
-                          type="button"
-                          onClick={() => {
-                            setExportPrimaryColor(preset.primary);
-                            setExportSecondaryColor(preset.secondary);
-                          }}
-                          className={cn(
-                            "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer",
-                            isActive
-                              ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
-                              : "border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                          )}
-                          title={`Terapkan ${preset.name}`}
-                        >
-                          <span className="flex items-center -space-x-1 shrink-0">
-                            <span
-                              className="size-2 rounded-full border border-background shadow-2xs"
-                              style={{ backgroundColor: preset.primary }}
-                            />
-                            <span
-                              className="size-2 rounded-full border border-background shadow-2xs"
-                              style={{ backgroundColor: preset.secondary }}
-                            />
-                          </span>
-                          <span>{preset.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
                 </div>
               </div>
 
@@ -2172,6 +2664,144 @@ export function CostCalculator() {
                 </p>
               )}
             </div>
+
+            {/* Perbandingan Cerdas Alternatif Bahan (Smart Budget Comparison) */}
+            {calculationSummary.grandTotal > 0 && (
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-primary" />
+                    <span className="text-xs font-bold text-foreground">
+                      Perbandingan Alternatif Bahan
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    Simulasi 1-Klik
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+                  Estimasi total jika seluruh komponen diubah ke tier spesifikasi bahan berikut:
+                </p>
+
+                <div className="space-y-2.5">
+                  {(
+                    [
+                      {
+                        tier: "hemat" as const,
+                        icon: "🥉",
+                        badgeClass:
+                          "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+                        activeBorder: "border-amber-500/60 bg-amber-500/[0.03]",
+                        data: comparisonTiers.tiers.hemat,
+                      },
+                      {
+                        tier: "standar" as const,
+                        icon: "🥈",
+                        badgeClass:
+                          "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+                        activeBorder: "border-primary bg-primary/[0.04]",
+                        data: comparisonTiers.tiers.standar,
+                      },
+                      {
+                        tier: "premium" as const,
+                        icon: "🥇",
+                        badgeClass:
+                          "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+                        activeBorder: "border-emerald-500/60 bg-emerald-500/[0.04]",
+                        data: comparisonTiers.tiers.premium,
+                      },
+                    ]
+                  ).map(({ tier, icon, badgeClass, activeBorder, data }) => {
+                    const isCurrent = comparisonTiers.currentTier === tier;
+                    return (
+                      <div
+                        key={tier}
+                        className={cn(
+                          "rounded-2xl border p-3 transition-all",
+                          isCurrent
+                            ? cn("shadow-2xs", activeBorder)
+                            : "border-border bg-background/60 hover:border-border/80"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm select-none">{icon}</span>
+                            <span className="font-bold text-xs text-foreground truncate">
+                              {data.label}
+                            </span>
+                          </div>
+                          <span
+                            className={cn(
+                              "text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0",
+                              badgeClass
+                            )}
+                          >
+                            {data.tag}
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] text-muted-foreground mb-2">
+                          {data.material}
+                        </div>
+
+                        <div className="flex items-baseline justify-between gap-2 mb-2.5">
+                          <span className="text-sm font-display font-black text-foreground">
+                            {formatRupiah(data.total)}
+                          </span>
+
+                          {isCurrent ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                              <Check className="size-3 stroke-[3]" />
+                              Pilihan Saat Ini
+                            </span>
+                          ) : (
+                            <span
+                              className={cn(
+                                "text-[11px] font-semibold px-2 py-0.5 rounded-md",
+                                data.diff < 0
+                                  ? "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 font-bold"
+                                  : "text-muted-foreground bg-muted"
+                              )}
+                            >
+                              {data.diff < 0
+                                ? `Hemat ${formatRupiah(Math.abs(data.diff))}`
+                                : data.diff > 0
+                                  ? `+${formatRupiah(data.diff)}`
+                                  : "Setara"}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Tombol Interaktif 1-Klik Terapkan Bahan */}
+                        <button
+                          type="button"
+                          onClick={() => applyMaterialTier(tier)}
+                          disabled={isCurrent}
+                          className={cn(
+                            "w-full py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                            isCurrent
+                              ? "bg-muted text-muted-foreground/80 cursor-default opacity-80"
+                              : "bg-primary/10 hover:bg-primary text-primary hover:text-white shadow-2xs hover:shadow-sm"
+                          )}
+                        >
+                          {isCurrent ? (
+                            <>
+                              <Check className="size-3.5 stroke-[2.5]" />
+                              <span>Bahan Sedang Diterapkan</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="size-3.5" />
+                              <span>Terapkan Bahan Ini</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2600,6 +3230,223 @@ export function CostCalculator() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Modal Daftar Riwayat Estimasi */}
+      {isHistoryModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Riwayat Estimasi Proyek"
+          onClick={() => setIsHistoryModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
+        >
+          <div
+            className="w-full max-w-3xl max-h-[90vh] rounded-3xl bg-card border border-border shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between shrink-0 bg-card">
+              <div className="flex items-center gap-2.5">
+                <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <FolderOpen className="size-4.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-bold text-foreground font-display">
+                      Riwayat Estimasi Proyek
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+                      {savedSimulations.length} Proyek
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Otomatis tersimpan di browser setiap kali Anda mengekspor JPG atau PDF.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryModalOpen(false)}
+                  className="size-8.5 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
+                  title="Tutup (Esc)"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Search Bar */}
+            <div className="p-3 sm:p-4 border-b border-border/80 bg-muted/30 shrink-0">
+              <div className="relative w-full">
+                <Search className="size-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={historySearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                  placeholder="Cari berdasarkan nama klien, alamat, atau akun..."
+                  className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary transition-all"
+                />
+              </div>
+            </div>
+
+            {/* List Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 min-h-0">
+              {filteredSimulations.length === 0 ? (
+                <div className="py-12 text-center space-y-3 bg-muted/20 rounded-2xl border border-dashed border-border/80">
+                  <div className="size-12 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                    <History className="size-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-foreground">
+                      {historySearchQuery ? "Tidak ada proyek yang sesuai pencarian" : "Belum Ada Riwayat Estimasi"}
+                    </p>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      {historySearchQuery
+                        ? "Coba gunakan kata kunci pencarian yang lain."
+                        : "Simulasikan kebutuhan furniture Anda, lalu download estimasi (JPG atau PDF). Proyek akan otomatis tersimpan di sini."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                filteredSimulations.map((sim) => {
+                  const isCurrentActive = sim.id === activeSimulationId;
+                  const dateStr = new Date(sim.updatedAt).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  return (
+                    <div
+                      key={sim.id}
+                      className={cn(
+                        "p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4",
+                        isCurrentActive
+                          ? "border-primary/50 bg-primary/[0.03] shadow-xs"
+                          : "border-border bg-card hover:border-border/80 hover:shadow-2xs"
+                      )}
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <User className="size-4 text-primary shrink-0" />
+                            <h4 className="text-sm sm:text-base font-bold text-foreground font-display truncate">
+                              {sim.clientName || "Klien Umum"}
+                            </h4>
+                          </div>
+                          {isCurrentActive && (
+                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20">
+                              ✓ Sedang Dibuka
+                            </span>
+                          )}
+                        </div>
+
+                        {sim.clientAddress && (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <MapPin className="size-3.5 text-primary/70 shrink-0" />
+                            <span className="truncate">{sim.clientAddress}</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap pt-0.5">
+                          <span>{dateStr}</span>
+                          <span>•</span>
+                          <span>{sim.activeCount} Item</span>
+                          {sim.totalM1 > 0 && <span>• {sim.totalM1} M1</span>}
+                          {sim.totalM2 > 0 && <span>• {sim.totalM2} m²</span>}
+                          {sim.accountName && <span>• Akun: {sim.accountName}</span>}
+                        </div>
+
+                        <div className="text-base sm:text-lg font-bold text-primary font-display pt-0.5">
+                          {formatRupiah(sim.grandTotal)}
+                        </div>
+                      </div>
+
+                      {/* Item Actions */}
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => handleLoadSimulation(sim)}
+                          className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                          title="Buka dan muat proyek ini ke kalkulator untuk diedit ulang"
+                        >
+                          <Pencil className="size-3" />
+                          <span>Buka & Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateSimulation(sim.id)}
+                          className="size-8 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                          title="Gandakan proyek ini sebagai salinan baru"
+                        >
+                          <Copy className="size-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Yakin ingin menghapus proyek "${sim.clientName || sim.title}" dari riwayat?`)) {
+                              handleDeleteSimulation(sim.id);
+                            }
+                          }}
+                          className="size-8 rounded-xl border border-border bg-card hover:bg-red-500/10 text-muted-foreground hover:text-red-500 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                          title="Hapus dari riwayat"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 sm:p-4 border-t border-border bg-card flex items-center justify-between text-xs text-muted-foreground">
+              <span>Total Tersimpan: {savedSimulations.length} Proyek</span>
+              <button
+                type="button"
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="font-semibold text-primary hover:underline cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Button "Riwayat" (Menggantikan tombol scroll khusus di halaman simulasi) */}
+      <button
+        type="button"
+        onClick={() => setIsHistoryModalOpen(true)}
+        className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-40 inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full border border-border bg-card/95 backdrop-blur-md text-foreground shadow-md hover:shadow-lg hover:border-primary/40 active:scale-95 transition-all duration-200 cursor-pointer select-none"
+        title="Buka Riwayat Estimasi Proyek"
+        aria-label="Buka Riwayat Estimasi Proyek"
+      >
+        <History className="size-4 text-primary shrink-0" />
+        <span className="text-xs sm:text-sm font-semibold">Riwayat</span>
+        {savedSimulations.length > 0 && (
+          <span className="size-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center border border-primary/20 shrink-0">
+            {savedSimulations.length}
+          </span>
+        )}
+      </button>
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm rounded-2xl bg-card border-2 border-primary/30 p-3.5 shadow-2xl flex items-center gap-2.5 text-xs text-foreground animate-in slide-in-from-bottom-5 duration-300">
+          <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <Check className="size-3.5 stroke-[3]" />
+          </div>
+          <p className="font-semibold leading-snug">{toastMessage}</p>
         </div>
       )}
     </div>

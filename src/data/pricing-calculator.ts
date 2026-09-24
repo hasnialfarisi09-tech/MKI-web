@@ -129,7 +129,7 @@ export const REGIONS: { id: Region; label: string; note: string }[] = [
 export const KITCHEN_ITEMS: FurnitureItemConfig[] = [
   {
     id: "cab_bawah",
-    name: "Kabinet Bawah (Kitchen Base Cabinet)",
+    name: "Kabinet Bawah",
     category: "kitchen",
     defaultUnit: "M1",
     description: "Tinggi standar ~80–85 cm, kedalaman ~60 cm. Sudah termasuk engsel slow-motion & rel laci standar.",
@@ -268,7 +268,7 @@ export const KITCHEN_ITEMS: FurnitureItemConfig[] = [
   },
   {
     id: "cab_atas",
-    name: "Kabinet Atas (Kitchen Wall Cabinet)",
+    name: "Kabinet Atas",
     category: "kitchen",
     defaultUnit: "M1",
     description: "Tinggi standar ~70–80 cm, kedalaman ~35 cm. Menggantung di dinding, rak piring/gelas bumbu.",

@@ -68,8 +68,6 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </p>
           </div>
         </footer>
-
-        <ScrollToTop />
       </div>
     );
   }
