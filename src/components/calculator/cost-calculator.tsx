@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   Download,
+  Eye,
   FileImage,
   FileText,
   Flame,
@@ -15,6 +16,7 @@ import {
   Loader2,
   MapPin,
   Minus,
+  Palette,
   Pencil,
   Plus,
   RotateCcw,
@@ -23,6 +25,7 @@ import {
   Tv,
   User,
   UtensilsCrossed,
+  X,
 } from "lucide-react";
 
 import {
@@ -40,6 +43,7 @@ import { track } from "@/lib/analytics";
 import {
   exportSimulationAsJpg,
   exportSimulationAsPdf,
+  generateSimulationPreview,
   SimulationExportData,
 } from "@/lib/export-simulation";
 
@@ -435,7 +439,19 @@ function SimpleDropdown({
   );
 }
 
+const EXPORT_COLOR_PRESETS = [
+  { name: "Terracotta MKI", primary: "#E5571F", secondary: "#1C1917" },
+  { name: "Navy Executive", primary: "#1D4ED8", secondary: "#0F172A" },
+  { name: "Emerald Luxury", primary: "#059669", secondary: "#064E3B" },
+  { name: "Warm Amber", primary: "#D97706", secondary: "#451A03" },
+  { name: "Monochrome", primary: "#27272A", secondary: "#09090B" },
+];
+
 export function CostCalculator() {
+  // State: Export Document Theme Colors (Primary & Secondary)
+  const [exportPrimaryColor, setExportPrimaryColor] = useState<string>("#E5571F");
+  const [exportSecondaryColor, setExportSecondaryColor] = useState<string>("#1C1917");
+
   // State: Identity & Client info (initialized to empty text)
   const [accountName, setAccountName] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
@@ -724,6 +740,8 @@ export function CostCalculator() {
     setAccountName("");
     setClientName("");
     setClientAddress("");
+    setExportPrimaryColor("#E5571F");
+    setExportSecondaryColor("#1C1917");
   };
 
   // Compute Grand Total, Total M1, Total M2, and Active Breakdown
@@ -977,36 +995,118 @@ export function CostCalculator() {
     }));
   };
 
+  // Memoized export simulation payload for download and live preview
+  const exportSimulationData: SimulationExportData = useMemo(() => {
+    return {
+      cityName: selectedCity.name,
+      provinceName: selectedProvince.name,
+      region,
+      accountName: accountName.trim() || undefined,
+      clientName: clientName.trim() || undefined,
+      clientAddress: clientAddress.trim() || undefined,
+      grandTotal: calculationSummary.grandTotal,
+      totalM1: calculationSummary.totalM1,
+      totalM2: calculationSummary.totalM2,
+      activeCount: calculationSummary.activeCount,
+      breakdown: calculationSummary.activeBreakdown.map((b) => ({
+        itemName: b.displayName,
+        optionName: b.optionName,
+        modelName: b.modelName,
+        unitPrice: b.unitPrice,
+        unit: b.unit,
+        measurement: b.measurement,
+        subtotal: b.subtotal,
+      })),
+      primaryColor: exportPrimaryColor,
+      secondaryColor: exportSecondaryColor,
+    };
+  }, [
+    selectedCity.name,
+    selectedProvince.name,
+    region,
+    accountName,
+    clientName,
+    clientAddress,
+    calculationSummary,
+    exportPrimaryColor,
+    exportSecondaryColor,
+  ]);
+
+  // Aturan Ekspor: Jika item > 15 hanya bisa ekspor ke PDF. Jika <= 15 bisa JPG dan PDF.
+  const isJpgAllowed = calculationSummary.activeBreakdown.length <= 15;
+
+  // State: Live Preview Modal & Zoom Controls
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState<"fit" | "actual">("fit");
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+
+  // Open Preview Modal & Immediately Generate Image
+  const handleOpenPreview = () => {
+    if (calculationSummary.activeBreakdown.length === 0) return;
+    try {
+      setIsGeneratingPreview(true);
+      const url = generateSimulationPreview(exportSimulationData, 1.2);
+      setPreviewDataUrl(url);
+    } catch (err) {
+      console.error("Gagal membuat live preview:", err);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+    setIsPreviewOpen(true);
+  };
+
+  // Debounced auto-refresh of preview when modal is open and data or colors change
+  useEffect(() => {
+    if (!isPreviewOpen || calculationSummary.activeBreakdown.length === 0) {
+      return;
+    }
+    setIsGeneratingPreview(true);
+    const timer = setTimeout(() => {
+      try {
+        const url = generateSimulationPreview(exportSimulationData, 1.2);
+        setPreviewDataUrl(url);
+      } catch (err) {
+        console.error("Gagal update live preview:", err);
+      } finally {
+        setIsGeneratingPreview(false);
+      }
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [isPreviewOpen, exportSimulationData, calculationSummary.activeBreakdown.length]);
+
+  // Lock body scroll and handle Escape key for preview modal
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsPreviewOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPreviewOpen]);
+
   const handleDownload = async (format: "jpg" | "pdf") => {
     if (calculationSummary.activeBreakdown.length === 0 || isExporting) return;
+    if (format === "jpg" && !isJpgAllowed) {
+      alert("Jumlah item lebih dari 15. Ekspor hanya tersedia dalam format PDF untuk menjaga kerapian dokumen.");
+      return;
+    }
     try {
       setIsExporting(format);
-      const data: SimulationExportData = {
-        cityName: selectedCity.name,
-        provinceName: selectedProvince.name,
-        region,
-        accountName: accountName.trim() || undefined,
-        clientName: clientName.trim() || undefined,
-        clientAddress: clientAddress.trim() || undefined,
-        grandTotal: calculationSummary.grandTotal,
-        totalM1: calculationSummary.totalM1,
-        totalM2: calculationSummary.totalM2,
-        activeCount: calculationSummary.activeCount,
-        breakdown: calculationSummary.activeBreakdown.map((b) => ({
-          itemName: b.displayName,
-          optionName: b.optionName,
-          modelName: b.modelName,
-          unitPrice: b.unitPrice,
-          unit: b.unit,
-          measurement: b.measurement,
-          subtotal: b.subtotal,
-        })),
-      };
-
       if (format === "jpg") {
-        await exportSimulationAsJpg(data);
+        await exportSimulationAsJpg(exportSimulationData);
       } else {
-        await exportSimulationAsPdf(data);
+        await exportSimulationAsPdf(exportSimulationData);
       }
       track("simulation_export", { format, city: selectedCity.name });
     } catch (err) {
@@ -1797,15 +1897,199 @@ export function CostCalculator() {
                 <span className="text-[11px] font-medium text-muted-foreground">Pilihan Format</span>
               </div>
 
+              {/* Kustomisasi Warna Dokumen (Primer & Sekunder) */}
+              <div className="mb-3 p-3 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                    <Palette className="size-3.5 text-primary" />
+                    <span>Warna Dokumen (JPG & PDF):</span>
+                  </div>
+                  {(exportPrimaryColor.toLowerCase() !== "#e5571f" ||
+                    exportSecondaryColor.toLowerCase() !== "#1c1917") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExportPrimaryColor("#E5571F");
+                        setExportSecondaryColor("#1C1917");
+                      }}
+                      className="text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                      title="Kembalikan warna default"
+                    >
+                      Reset Default
+                    </button>
+                  )}
+                </div>
+
+                {/* Live Color Bar Preview */}
+                <div className="h-1.5 w-full rounded-full overflow-hidden flex shadow-2xs">
+                  <div
+                    className="h-full flex-1 transition-colors"
+                    style={{ backgroundColor: exportPrimaryColor }}
+                    title={`Warna Primer: ${exportPrimaryColor}`}
+                  />
+                  <div
+                    className="h-full flex-1 transition-colors"
+                    style={{ backgroundColor: exportSecondaryColor }}
+                    title={`Warna Sekunder: ${exportSecondaryColor}`}
+                  />
+                </div>
+
+                {/* Color Pickers: Primer & Sekunder */}
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Warna Primer */}
+                  <div>
+                    <label className="block text-[10px] font-semibold text-muted-foreground mb-1">
+                      Warna Primer:
+                    </label>
+                    <div className="flex items-center gap-1.5 p-1.5 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors">
+                      <label className="relative size-6 rounded-lg overflow-hidden shrink-0 cursor-pointer border border-border/60 shadow-2xs">
+                        <input
+                          type="color"
+                          value={exportPrimaryColor}
+                          onChange={(e) => setExportPrimaryColor(e.target.value)}
+                          className="absolute -top-2 -left-2 size-10 cursor-pointer opacity-0"
+                          title="Pilih warna primer"
+                        />
+                        <span
+                          className="block size-full rounded-lg"
+                          style={{ backgroundColor: exportPrimaryColor }}
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        value={exportPrimaryColor.toUpperCase()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^#[0-9A-Fa-f]{0,6}$/.test(val) || /^[0-9A-Fa-f]{0,6}$/.test(val)) {
+                            setExportPrimaryColor(val.startsWith("#") ? val : `#${val}`);
+                          }
+                        }}
+                        maxLength={7}
+                        className="w-full text-[11px] font-mono font-bold text-foreground bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Warna Sekunder */}
+                  <div>
+                    <label className="block text-[10px] font-semibold text-muted-foreground mb-1">
+                      Warna Sekunder:
+                    </label>
+                    <div className="flex items-center gap-1.5 p-1.5 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors">
+                      <label className="relative size-6 rounded-lg overflow-hidden shrink-0 cursor-pointer border border-border/60 shadow-2xs">
+                        <input
+                          type="color"
+                          value={exportSecondaryColor}
+                          onChange={(e) => setExportSecondaryColor(e.target.value)}
+                          className="absolute -top-2 -left-2 size-10 cursor-pointer opacity-0"
+                          title="Pilih warna sekunder"
+                        />
+                        <span
+                          className="block size-full rounded-lg"
+                          style={{ backgroundColor: exportSecondaryColor }}
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        value={exportSecondaryColor.toUpperCase()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^#[0-9A-Fa-f]{0,6}$/.test(val) || /^[0-9A-Fa-f]{0,6}$/.test(val)) {
+                            setExportSecondaryColor(val.startsWith("#") ? val : `#${val}`);
+                          }
+                        }}
+                        maxLength={7}
+                        className="w-full text-[11px] font-mono font-bold text-foreground bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Preset Badges */}
+                <div>
+                  <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+                    Preset Warna:
+                  </div>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {EXPORT_COLOR_PRESETS.map((preset) => {
+                      const isActive =
+                        exportPrimaryColor.toLowerCase() === preset.primary.toLowerCase() &&
+                        exportSecondaryColor.toLowerCase() === preset.secondary.toLowerCase();
+                      return (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => {
+                            setExportPrimaryColor(preset.primary);
+                            setExportSecondaryColor(preset.secondary);
+                          }}
+                          className={cn(
+                            "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer",
+                            isActive
+                              ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                          )}
+                          title={`Terapkan ${preset.name}`}
+                        >
+                          <span className="flex items-center -space-x-1 shrink-0">
+                            <span
+                              className="size-2 rounded-full border border-background shadow-2xs"
+                              style={{ backgroundColor: preset.primary }}
+                            />
+                            <span
+                              className="size-2 rounded-full border border-background shadow-2xs"
+                              style={{ backgroundColor: preset.secondary }}
+                            />
+                          </span>
+                          <span>{preset.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tombol Buka Live Preview */}
+              <button
+                type="button"
+                onClick={handleOpenPreview}
+                disabled={calculationSummary.activeBreakdown.length === 0}
+                className={cn(
+                  "w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-2xs mb-2 cursor-pointer",
+                  calculationSummary.activeBreakdown.length === 0
+                    ? "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+                    : "bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 hover:border-primary/50 shadow-2xs hover:shadow-xs active:scale-[0.99]"
+                )}
+                title={
+                  calculationSummary.activeBreakdown.length === 0
+                    ? "Pilih komponen terlebih dahulu untuk melihat preview"
+                    : "Buka live preview dokumen estimasi (format 9:16)"
+                }
+              >
+                <Eye className="size-4 shrink-0 text-primary" />
+                <span>Live Preview Dokumen (9:16)</span>
+              </button>
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => handleDownload("jpg")}
-                  disabled={isExporting !== null || calculationSummary.activeBreakdown.length === 0}
-                  className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-primary/40 bg-background hover:bg-primary/5 text-primary text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={
+                    isExporting !== null ||
+                    calculationSummary.activeBreakdown.length === 0 ||
+                    !isJpgAllowed
+                  }
+                  className={cn(
+                    "flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer",
+                    !isJpgAllowed || calculationSummary.activeBreakdown.length === 0
+                      ? "border-border bg-muted/40 text-muted-foreground opacity-45 cursor-not-allowed select-none"
+                      : "border-primary/40 bg-background hover:bg-primary/5 text-primary hover:shadow-xs"
+                  )}
                   title={
                     calculationSummary.activeBreakdown.length === 0
                       ? "Pilih komponen terlebih dahulu untuk download"
+                      : !isJpgAllowed
+                      ? "Format JPG hanya tersedia untuk maksimal 15 item. Silakan gunakan format PDF."
                       : "Download estimasi dalam format gambar JPG"
                   }
                 >
@@ -1837,6 +2121,15 @@ export function CostCalculator() {
                 </button>
               </div>
 
+              {!isJpgAllowed && calculationSummary.activeBreakdown.length > 0 && (
+                <div className="flex items-start gap-1.5 mt-2.5 p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[11px] leading-snug">
+                  <Info className="size-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Jumlah item ({calculationSummary.activeBreakdown.length}) lebih dari 15. Ekspor hanya dapat dilakukan ke <strong>Format PDF</strong>.
+                  </span>
+                </div>
+              )}
+
               {calculationSummary.activeBreakdown.length === 0 && (
                 <p className="text-[10px] text-muted-foreground mt-1.5 italic text-center">
                   *Centang komponen untuk mengaktifkan pilihan download JPG & PDF
@@ -1846,6 +2139,405 @@ export function CostCalculator() {
           </div>
         </div>
       </div>
+
+      {/* Modal Live Preview Dokumen */}
+      {isPreviewOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Live Preview Dokumen Estimasi"
+          onClick={() => setIsPreviewOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+        >
+          <div
+            className="relative w-full max-w-5xl h-[94vh] max-h-[920px] rounded-3xl bg-card border border-border shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Top Bar */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-border bg-card shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="size-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Eye className="size-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold text-foreground">
+                      Live Preview Dokumen Estimasi
+                    </h3>
+                    <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+                      9:16 Portrait
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground hidden sm:block">
+                    Tampilan real-time output JPG & PDF dengan kustomisasi warna
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Zoom Mode Toggle */}
+                <div className="hidden sm:flex items-center rounded-xl bg-muted/60 p-0.5 border border-border text-[11px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom("fit")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg transition-colors cursor-pointer",
+                      previewZoom === "fit"
+                        ? "bg-card text-foreground font-bold shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title="Sesuaikan ukuran dokumen dengan layar modal"
+                  >
+                    Fit Layar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom("actual")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg transition-colors cursor-pointer",
+                      previewZoom === "actual"
+                        ? "bg-card text-foreground font-bold shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title="Lihat ukuran detail 100%"
+                  >
+                    100% Detail
+                  </button>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="size-9 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                  title="Tutup preview (Esc)"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content Split: Stage (Left) & Controls/Actions (Right) */}
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+              {/* Preview Stage */}
+              <div className="flex-1 bg-neutral-950 p-3 sm:p-6 overflow-auto flex items-center justify-center relative select-none">
+                {/* Subtle dark pattern grid */}
+                <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]" />
+
+                {isGeneratingPreview && (
+                  <div className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 backdrop-blur text-white text-xs font-medium border border-white/10 shadow-lg">
+                    <Loader2 className="size-3.5 animate-spin text-primary" />
+                    <span>Merender dokumen...</span>
+                  </div>
+                )}
+
+                {previewDataUrl ? (
+                  <div
+                    className={cn(
+                      "relative transition-all duration-200 flex items-center justify-center my-auto",
+                      previewZoom === "fit" ? "max-h-full max-w-full" : "py-4"
+                    )}
+                  >
+                    <img
+                      src={previewDataUrl}
+                      alt="Live Preview Estimasi"
+                      className={cn(
+                        "rounded-xl shadow-2xl ring-1 ring-white/10 transition-all",
+                        previewZoom === "fit"
+                          ? "max-h-[calc(94vh-130px)] sm:max-h-[calc(94vh-100px)] w-auto object-contain"
+                          : "w-[460px] sm:w-[520px] max-w-none h-auto object-contain"
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center text-neutral-400 py-12">
+                    <Loader2 className="size-8 animate-spin mx-auto text-primary mb-3" />
+                    <p className="text-xs">Menyiapkan live preview...</p>
+                  </div>
+                )}
+
+                {/* Floating Zoom Switcher for mobile */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex sm:hidden items-center gap-1 px-2 py-1 rounded-full bg-black/80 backdrop-blur border border-white/15 text-[11px] text-white">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom("fit")}
+                    className={cn(
+                      "px-2.5 py-0.5 rounded-full font-medium transition-colors",
+                      previewZoom === "fit" ? "bg-primary text-white font-bold" : "text-neutral-300"
+                    )}
+                  >
+                    Fit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom("actual")}
+                    className={cn(
+                      "px-2.5 py-0.5 rounded-full font-medium transition-colors",
+                      previewZoom === "actual" ? "bg-primary text-white font-bold" : "text-neutral-300"
+                    )}
+                  >
+                    Detail
+                  </button>
+                </div>
+              </div>
+
+              {/* Sidebar Control Panel inside Modal */}
+              <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-border bg-card p-4 sm:p-5 flex flex-col justify-between overflow-y-auto shrink-0 space-y-4">
+                <div className="space-y-3.5">
+                  {/* Summary Info */}
+                  <div className="p-3 rounded-2xl bg-muted/50 border border-border/80">
+                    <div className="text-[11px] font-semibold text-muted-foreground mb-1">
+                      Ringkasan Dokumen:
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xs text-foreground font-medium">Total Estimasi:</span>
+                      <span className="text-sm font-bold text-primary font-mono">
+                        {formatRupiah(calculationSummary.grandTotal)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
+                      <span>Komponen Aktif:</span>
+                      <span className="font-semibold text-foreground">
+                        {calculationSummary.activeCount} Item
+                      </span>
+                    </div>
+                    {(clientName.trim() || accountName.trim()) && (
+                      <div className="pt-2 mt-2 border-t border-border/60 text-[11px] text-muted-foreground space-y-0.5">
+                        {accountName.trim() && (
+                          <div className="truncate">
+                            Akun: <strong className="text-foreground">{accountName.trim()}</strong>
+                          </div>
+                        )}
+                        {clientName.trim() && (
+                          <div className="truncate">
+                            Klien: <strong className="text-foreground">{clientName.trim()}</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Live Color Picker Controls inside modal */}
+                  <div className="p-3.5 rounded-2xl bg-card border border-border shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                        <Palette className="size-3.5 text-primary" />
+                        <span>Kustomisasi Warna:</span>
+                      </div>
+                      {(exportPrimaryColor.toLowerCase() !== "#e5571f" ||
+                        exportSecondaryColor.toLowerCase() !== "#1c1917") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExportPrimaryColor("#E5571F");
+                            setExportSecondaryColor("#1C1917");
+                          }}
+                          className="text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                          title="Kembalikan warna default"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Live Color Bar */}
+                    <div className="h-1.5 w-full rounded-full overflow-hidden flex shadow-2xs">
+                      <div
+                        className="h-full flex-1 transition-colors"
+                        style={{ backgroundColor: exportPrimaryColor }}
+                        title={`Warna Primer: ${exportPrimaryColor}`}
+                      />
+                      <div
+                        className="h-full flex-1 transition-colors"
+                        style={{ backgroundColor: exportSecondaryColor }}
+                        title={`Warna Sekunder: ${exportSecondaryColor}`}
+                      />
+                    </div>
+
+                    {/* Color Inputs */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-muted-foreground mb-1">
+                          Primer:
+                        </label>
+                        <div className="flex items-center gap-1.5 p-1 rounded-xl border border-border bg-background">
+                          <label className="relative size-6 rounded-lg overflow-hidden shrink-0 cursor-pointer border border-border/60">
+                            <input
+                              type="color"
+                              value={exportPrimaryColor}
+                              onChange={(e) => setExportPrimaryColor(e.target.value)}
+                              className="absolute -top-2 -left-2 size-10 cursor-pointer opacity-0"
+                            />
+                            <span
+                              className="block size-full rounded-lg"
+                              style={{ backgroundColor: exportPrimaryColor }}
+                            />
+                          </label>
+                          <input
+                            type="text"
+                            value={exportPrimaryColor.toUpperCase()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{0,6}$/.test(val) || /^[0-9A-Fa-f]{0,6}$/.test(val)) {
+                                setExportPrimaryColor(val.startsWith("#") ? val : `#${val}`);
+                              }
+                            }}
+                            maxLength={7}
+                            className="w-full text-[11px] font-mono font-bold text-foreground bg-transparent focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-semibold text-muted-foreground mb-1">
+                          Sekunder:
+                        </label>
+                        <div className="flex items-center gap-1.5 p-1 rounded-xl border border-border bg-background">
+                          <label className="relative size-6 rounded-lg overflow-hidden shrink-0 cursor-pointer border border-border/60">
+                            <input
+                              type="color"
+                              value={exportSecondaryColor}
+                              onChange={(e) => setExportSecondaryColor(e.target.value)}
+                              className="absolute -top-2 -left-2 size-10 cursor-pointer opacity-0"
+                            />
+                            <span
+                              className="block size-full rounded-lg"
+                              style={{ backgroundColor: exportSecondaryColor }}
+                            />
+                          </label>
+                          <input
+                            type="text"
+                            value={exportSecondaryColor.toUpperCase()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{0,6}$/.test(val) || /^[0-9A-Fa-f]{0,6}$/.test(val)) {
+                                setExportSecondaryColor(val.startsWith("#") ? val : `#${val}`);
+                              }
+                            }}
+                            maxLength={7}
+                            className="w-full text-[11px] font-mono font-bold text-foreground bg-transparent focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Presets */}
+                    <div>
+                      <div className="text-[10px] font-semibold text-muted-foreground mb-1.5">
+                        Pilih Tema Preset:
+                      </div>
+                      <div className="grid grid-cols-1 gap-1">
+                        {EXPORT_COLOR_PRESETS.map((preset) => {
+                          const isActive =
+                            exportPrimaryColor.toLowerCase() === preset.primary.toLowerCase() &&
+                            exportSecondaryColor.toLowerCase() === preset.secondary.toLowerCase();
+                          return (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => {
+                                setExportPrimaryColor(preset.primary);
+                                setExportSecondaryColor(preset.secondary);
+                              }}
+                              className={cn(
+                                "flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-all cursor-pointer border",
+                                isActive
+                                  ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                                  : "border-border bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="flex items-center -space-x-1 shrink-0">
+                                  <span
+                                    className="size-2.5 rounded-full border border-card shadow-2xs"
+                                    style={{ backgroundColor: preset.primary }}
+                                  />
+                                  <span
+                                    className="size-2.5 rounded-full border border-card shadow-2xs"
+                                    style={{ backgroundColor: preset.secondary }}
+                                  />
+                                </span>
+                                <span className="text-[11px]">{preset.name}</span>
+                              </div>
+                              {isActive && <Check className="size-3 text-primary" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons in Modal */}
+                <div className="pt-3 border-t border-border space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+                    <span>Unduh File Hasil:</span>
+                    {!isJpgAllowed && (
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                        Hanya PDF (&gt; 15 item)
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDownload("jpg")}
+                      disabled={isExporting !== null || !isJpgAllowed}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer",
+                        !isJpgAllowed
+                          ? "border-border bg-muted/40 text-muted-foreground opacity-45 cursor-not-allowed select-none"
+                          : "border-primary/40 bg-background hover:bg-primary/5 text-primary hover:shadow-xs"
+                      )}
+                      title={
+                        !isJpgAllowed
+                          ? "Format JPG hanya tersedia untuk maksimal 15 item. Silakan gunakan format PDF."
+                          : "Download format gambar JPG"
+                      }
+                    >
+                      {isExporting === "jpg" ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <FileImage className="size-3.5" />
+                      )}
+                      <span>{isExporting === "jpg" ? "Proses..." : "Unduh JPG"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDownload("pdf")}
+                      disabled={isExporting !== null}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-primary/40 bg-background hover:bg-primary/5 text-primary text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-40"
+                      title="Download format dokumen PDF"
+                    >
+                      {isExporting === "pdf" ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <FileText className="size-3.5" />
+                      )}
+                      <span>{isExporting === "pdf" ? "Proses..." : "Unduh PDF"}</span>
+                    </button>
+                  </div>
+
+                  {!isJpgAllowed && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-tight">
+                      *Jumlah item ({calculationSummary.activeBreakdown.length}) lebih dari 15. Ekspor dibatasi hanya ke format PDF demi kerapian dokumen.
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewOpen(false)}
+                    className="w-full py-2 text-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    Tutup Jendela
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
