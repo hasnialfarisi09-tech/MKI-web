@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
+  ArrowDown,
   Bed,
   Building2,
   Check,
@@ -448,6 +449,37 @@ const EXPORT_COLOR_PRESETS = [
 ];
 
 export function CostCalculator() {
+  // Ref & State for Mobile Sticky "Lihat RAB" Button
+  const summaryCardRef = useRef<HTMLDivElement>(null);
+  const [isSummaryVisible, setIsSummaryVisible] = useState(false);
+
+  // Monitor visibility of summary card on mobile
+  useEffect(() => {
+    const el = summaryCardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsSummaryVisible(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Smooth scroll to summary card without being clipped by sticky header
+  const scrollToSummary = () => {
+    const target = summaryCardRef.current || document.getElementById("ringkasan-estimasi-card");
+    if (!target) return;
+    const headerOffset = 76; // 64px header height + 12px breathing room
+    const elementPosition = target.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: "smooth",
+    });
+  };
+
   // State: Export Document Theme Colors (Primary & Secondary)
   const [exportPrimaryColor, setExportPrimaryColor] = useState<string>("#E5571F");
   const [exportSecondaryColor, setExportSecondaryColor] = useState<string>("#1C1917");
@@ -1796,7 +1828,11 @@ export function CostCalculator() {
         </div>
 
         {/* Right Column: Sticky Live Summary */}
-        <div className="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-24 space-y-6">
+        <div
+          id="ringkasan-estimasi-card"
+          ref={summaryCardRef}
+          className="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-24 space-y-6 scroll-mt-24"
+        >
           <div className="rounded-3xl bg-card border-2 border-primary/20 p-6 sm:p-7 shadow-sm">
             <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
               <div>
@@ -2139,6 +2175,34 @@ export function CostCalculator() {
           </div>
         </div>
       </div>
+
+      {/* Sticky Floating Bar "Lihat RAB" khusus Mobile (Hanya tampil jika ada komponen aktif & belum di area RAB) */}
+      {calculationSummary.activeCount > 0 && !isSummaryVisible && (
+        <div className="fixed bottom-4 inset-x-3 sm:inset-x-4 z-30 lg:hidden max-w-md mx-auto animate-in slide-in-from-bottom-5 fade-in duration-300 pointer-events-auto">
+          <div className="rounded-2xl border-2 border-primary/30 bg-card/95 backdrop-blur-xl p-2.5 sm:p-3 shadow-xl flex items-center justify-between gap-3">
+            {/* Info Singkat Total Biaya */}
+            <div className="min-w-0 pl-1">
+              <div className="text-[10px] sm:text-xs font-semibold text-muted-foreground truncate">
+                Total Estimasi ({calculationSummary.activeCount} Item):
+              </div>
+              <div className="text-base sm:text-lg font-bold text-primary font-mono truncate leading-tight">
+                {formatRupiah(calculationSummary.grandTotal)}
+              </div>
+            </div>
+
+            {/* Tombol Utama Lihat RAB */}
+            <button
+              type="button"
+              onClick={scrollToSummary}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs sm:text-sm shadow-md hover:bg-primary/90 active:scale-95 transition-all cursor-pointer shrink-0"
+              title="Scroll ke Ringkasan Estimasi / RAB"
+            >
+              <span>Lihat RAB</span>
+              <ArrowDown className="size-4 animate-bounce shrink-0" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal Live Preview Dokumen */}
       {isPreviewOpen && (
