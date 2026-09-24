@@ -496,7 +496,7 @@ export function createSimulationCanvas(
   ctx.font = "500 16.5px 'Segoe UI', Roboto, sans-serif";
   const notes = [
     "✓ Aksesoris engsel soft-close & rel laci presisi standar workshop terstandarisasi.",
-    "✓ Bahan multiplek/blockboard berkualitas grade A dengan finishing HPL/Duco tahan lembap.",
+    "✓ Bahan multiplek/blockboard berkualitas grade A dengan finishing HPL tahan lembap.",
     "✓ Sudah termasuk visualisasi desain 3D & pemasangan langsung oleh tim teknis workshop.",
     "✓ Standar mutu pengerjaan rapi, presisi, dan kokoh untuk kebutuhan interior jangka panjang.",
   ];

@@ -1437,7 +1437,7 @@ export function CostCalculator() {
           },
           premium: {
             label: "Paket Premium",
-            material: "PVC Board 100% Anti Rayap / Duco",
+            material: "PVC Board 100% Anti Rayap",
             tag: "Anti Rayap & Air",
             total: 0,
             diff: 0,
@@ -1541,7 +1541,7 @@ export function CostCalculator() {
         },
         premium: {
           label: "Paket Premium",
-          material: "PVC Board 100% Anti Rayap / Duco",
+          material: "PVC Board 100% Anti Rayap",
           tag: "Anti Rayap & Air",
           total: premiumTotal,
           diff: premiumTotal - calculationSummary.grandTotal,
