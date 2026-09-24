@@ -73,7 +73,7 @@ export function PortfolioCard({ item }: PortfolioCardProps) {
                   alt={item.title}
                   fill
                   sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                  className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-110"
+                  className="object-cover transition-transform [transition-duration:900ms] ease-out group-hover:scale-110"
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-mki-navy/75 via-mki-navy/10 to-transparent" />
