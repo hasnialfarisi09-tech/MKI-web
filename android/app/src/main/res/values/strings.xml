@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kalkulator Interior</string>
+    <string name="title_activity_main">Kalkulator Interior</string>
+    <string name="package_name">id.mki.kalkulatorinterior</string>
+    <string name="custom_url_scheme">id.mki.kalkulatorinterior</string>
+</resources>

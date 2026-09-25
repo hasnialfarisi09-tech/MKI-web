@@ -52,6 +52,8 @@ import {
   generateSimulationPreview,
   SimulationExportData,
 } from "@/lib/export-simulation";
+import { Capacitor } from "@capacitor/core";
+import { localExportApi } from "@/lib/offline-api";
 
 export type KitchenLayoutType = "lurus" | "l_shape" | "u_shape";
 export type DimensionField = "length" | "height" | "qty" | "length2" | "length3";
@@ -1679,14 +1681,13 @@ export function CostCalculator() {
     }
     try {
       setIsExporting(format);
-      if (format === "jpg") {
-        await exportSimulationAsJpg(exportSimulationData);
-      } else {
-        await exportSimulationAsPdf(exportSimulationData);
-      }
+      const exportRes = await localExportApi.saveAndShare(format, exportSimulationData, { shareDirectly: true });
       track("simulation_export", { format, city: selectedCity.name });
       // Otomatis simpan / perbarui ke Riwayat Proyek saat user melakukan Export JPG atau PDF
       autoSaveToHistory();
+      if (Capacitor.isNativePlatform() && exportRes.message) {
+        setToastMessage(exportRes.message);
+      }
     } catch (err) {
       console.error("Gagal export estimasi:", err);
       alert("Terjadi kendala saat menyiapkan file. Silakan coba lagi.");
