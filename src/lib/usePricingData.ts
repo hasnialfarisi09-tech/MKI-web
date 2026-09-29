@@ -90,6 +90,14 @@ function writeLocalCache(
 const APPS_SCRIPT_URL =
   process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 
+// Debug: log URL saat module dimuat (tampil di browser console)
+if (typeof window !== "undefined") {
+  console.log(
+    "[usePricingData] Apps Script URL:",
+    APPS_SCRIPT_URL ? `${APPS_SCRIPT_URL.slice(0, 60)}...` : "⚠️ KOSONG - env var tidak terbaca!"
+  );
+}
+
 // ─── Main Hook ─────────────────────────────────────────────────────────────────
 
 /**
@@ -153,15 +161,21 @@ export function usePricingData(): PricingDataState {
 
       // 3. Fetch langsung ke Google Apps Script
       try {
+        console.log("[usePricingData] Fetching dari Apps Script...");
         const res = await fetch(`${APPS_SCRIPT_URL}?action=all`, {
-          // Tidak ada credentials — Apps Script di-deploy sebagai "Anyone can access"
+          method: "GET",
+          redirect: "follow",   // penting untuk Google Apps Script redirect
           mode: "cors",
         });
         if (cancelled) return;
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
+        console.log("[usePricingData] Response status:", res.status, res.type);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (cancelled) return;
+
+        console.log("[usePricingData] Response success:", json.success);
         if (!json.success) throw new Error(json.error || "Unknown error");
 
         const { pricing, locations } = json.data as {
@@ -183,6 +197,7 @@ export function usePricingData(): PricingDataState {
         setIsLive(true);
         setLastUpdated(new Date());
         writeLocalCache(pricing, resolvedProvinces);
+        console.log(`[usePricingData] ✅ Berhasil load ${pricing.length} items dari Apps Script`);
       } catch (err) {
         if (cancelled) return;
 

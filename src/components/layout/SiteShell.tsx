@@ -13,11 +13,14 @@ import { SmoothScroll } from "@/components/layout/SmoothScroll";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { FloatingCta } from "@/components/layout/FloatingCta";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { useAppUpdate } from "@/lib/useAppUpdate";
+import { UpdateDialog, CheckUpdateButton } from "@/components/common/UpdateDialog";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isNative, setIsNative] = useState(false);
+  const updateState = useAppUpdate();
 
   useEffect(() => {
     const native = Capacitor.isNativePlatform();
@@ -80,8 +83,17 @@ export function SiteShell({ children }: { children: ReactNode }) {
             <p className="text-[11px] text-muted-foreground/80 pt-2">
               © {new Date().getFullYear()} Estimasi Biaya Interior Custom. Hak cipta dilindungi.
             </p>
+            {/* Tombol Cek Update — hanya tampil di native Android */}
+            {isNative && (
+              <div className="pt-2 flex justify-center">
+                <CheckUpdateButton updateState={updateState} />
+              </div>
+            )}
           </div>
         </footer>
+
+        {/* Dialog Notifikasi Update Aplikasi */}
+        <UpdateDialog updateState={updateState} />
       </div>
     );
   }

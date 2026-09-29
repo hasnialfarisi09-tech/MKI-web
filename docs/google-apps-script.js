@@ -19,6 +19,7 @@
 const SHEET_NAMES = {
   PRICING: "Pricing",
   LOCATIONS: "Locations",
+  APP_VERSION: "AppVersion",
 };
 
 /**
@@ -41,10 +42,14 @@ function doGet(e) {
       case "locations":
         data = getLocationsData();
         break;
+      case "app_version":
+        data = getAppVersionData();
+        break;
       case "all":
         data = {
           pricing: getPricingData(),
           locations: getLocationsData(),
+          appVersion: getAppVersionData(),
         };
         break;
       default:
@@ -168,11 +173,57 @@ function getLocationsData() {
   return Object.values(provincesMap);
 }
 
+/**
+ * Ambil data versi aplikasi dari sheet "AppVersion"
+ * 
+ * Struktur sheet "AppVersion" (Key - Value):
+ * Baris 1: latestVersion | 1.1.0
+ * Baris 2: minVersion    | 1.0.0 (jika versi app < minVersion, wajib update)
+ * Baris 3: downloadUrl   | https://link-ke-file-apk.com
+ * Baris 4: changelog     | Perubahan tata letak, tombol baru, dan performa kalkulasi lebih cepat
+ * Baris 5: forceUpdate   | FALSE (atau TRUE jika wajib update)
+ * Baris 6: releaseDate   | 2026-09-30
+ */
+function getAppVersionData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.APP_VERSION);
+
+  // Jika tab "AppVersion" belum dibuat pengguna di Google Sheets, return null secara aman
+  if (!sheet) return null;
+
+  const data = sheet.getDataRange().getValues();
+  if (!data || data.length === 0) return null;
+
+  const config = {};
+  for (let i = 0; i < data.length; i++) {
+    const key = String(data[i][0] || "").trim();
+    const val = data[i][1];
+    if (key) {
+      config[key] = val;
+    }
+  }
+
+  // Jika baris kosong atau tidak ada latestVersion
+  if (!config.latestVersion) return null;
+
+  return {
+    latestVersion: String(config.latestVersion).trim(),
+    minVersion: config.minVersion ? String(config.minVersion).trim() : "1.0.0",
+    downloadUrl: String(config.downloadUrl || "").trim(),
+    changelog: String(config.changelog || "").trim(),
+    forceUpdate: String(config.forceUpdate).toLowerCase() === "true" || config.forceUpdate === true,
+    releaseDate: config.releaseDate ? String(config.releaseDate).trim() : "",
+  };
+}
+
 /** Fungsi test - jalankan manual di editor untuk cek */
 function testAPI() {
   const pricing = getPricingData();
   const locations = getLocationsData();
+  const appVersion = getAppVersionData();
   Logger.log("Pricing items: " + pricing.length);
   Logger.log("Provinces: " + locations.length);
+  Logger.log("App Version: " + JSON.stringify(appVersion));
   Logger.log("First item: " + JSON.stringify(pricing[0]));
 }
+
