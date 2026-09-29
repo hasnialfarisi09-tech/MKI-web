@@ -1,0 +1,43 @@
+provinceId,provinceName,cityId,cityName,isDK
+jabar,Jawa Barat,kota-bandung,Kota Bandung,TRUE
+jabar,Jawa Barat,kab-bandung,Kabupaten Bandung,TRUE
+jabar,Jawa Barat,kab-bandung-barat,Kabupaten Bandung Barat,TRUE
+jabar,Jawa Barat,kota-cimahi,Kota Cimahi,TRUE
+jabar,Jawa Barat,kab-sumedang,Kabupaten Sumedang,TRUE
+jabar,Jawa Barat,kab-cianjur,Kabupaten Cianjur,TRUE
+jabar,Jawa Barat,kota-sukabumi,Kota Sukabumi,TRUE
+jabar,Jawa Barat,kab-sukabumi,Kabupaten Sukabumi,TRUE
+jabar,Jawa Barat,kota-bogor,Kota Bogor,FALSE
+jabar,Jawa Barat,kab-bogor,Kabupaten Bogor,FALSE
+jabar,Jawa Barat,kota-depok,Kota Depok,FALSE
+jabar,Jawa Barat,kota-bekasi,Kota Bekasi,FALSE
+jabar,Jawa Barat,kab-bekasi,Kabupaten Bekasi,FALSE
+jabar,Jawa Barat,kab-karawang,Kabupaten Karawang,FALSE
+jabar,Jawa Barat,kab-purwakarta,Kabupaten Purwakarta,FALSE
+jabar,Jawa Barat,kab-subang,Kabupaten Subang,FALSE
+jabar,Jawa Barat,kab-garut,Kabupaten Garut,FALSE
+jabar,Jawa Barat,kota-tasikmalaya,Kota Tasikmalaya,FALSE
+jabar,Jawa Barat,kab-tasikmalaya,Kabupaten Tasikmalaya,FALSE
+jabar,Jawa Barat,kab-ciamis,Kabupaten Ciamis,FALSE
+jabar,Jawa Barat,kota-banjar,Kota Banjar,FALSE
+jabar,Jawa Barat,kab-pangandaran,Kabupaten Pangandaran,FALSE
+jabar,Jawa Barat,kota-cirebon,Kota Cirebon,FALSE
+jabar,Jawa Barat,kab-cirebon,Kabupaten Cirebon,FALSE
+jabar,Jawa Barat,kab-indramayu,Kabupaten Indramayu,FALSE
+jabar,Jawa Barat,kab-majalengka,Kabupaten Majalengka,FALSE
+jabar,Jawa Barat,kab-kuningan,Kabupaten Kuningan,FALSE
+dki,DKI Jakarta,jaksel,Jakarta Selatan,FALSE
+dki,DKI Jakarta,jaktim,Jakarta Timur,FALSE
+dki,DKI Jakarta,jakbar,Jakarta Barat,FALSE
+dki,DKI Jakarta,jakpus,Jakarta Pusat,FALSE
+dki,DKI Jakarta,jakut,Jakarta Utara,FALSE
+dki,DKI Jakarta,seribu,Kepulauan Seribu,FALSE
+banten,Banten,kota-tangerang,Kota Tangerang,FALSE
+banten,Banten,tangsel,Kota Tangerang Selatan,FALSE
+banten,Banten,kab-tangerang,Kabupaten Tangerang,FALSE
+banten,Banten,kota-serang,Kota Serang,FALSE
+banten,Banten,kab-serang,Kabupaten Serang,FALSE
+banten,Banten,kota-cilegon,Kota Cilegon,FALSE
+banten,Banten,kab-lebak,Kabupaten Lebak,FALSE
+banten,Banten,kab-pandeglang,Kabupaten Pandeglang,FALSE
+lainnya,Provinsi Lainnya (Luar Wilayah),luar-wilayah,Luar Jabar / Banten / DKI,FALSE

@@ -34,16 +34,12 @@ import {
 } from "lucide-react";
 
 import {
-  ACCESSORIES_ITEMS,
-  ELECTRONIC_ITEMS,
   FurnitureItemConfig,
   formatRupiah,
-  KITCHEN_ITEMS,
   MaterialOption,
-  OTHER_CATEGORIES,
-  PROVINCES_DATA,
   Region,
 } from "@/data/pricing-calculator";
+import { usePricingData } from "@/lib/usePricingData";
 import { cn } from "@/lib/cn";
 import { track } from "@/lib/analytics";
 import {
@@ -520,12 +516,8 @@ const CATEGORY_CUSTOM_CONFIG: Record<
   },
 };
 
-const ALL_ITEMS: FurnitureItemConfig[] = [
-  ...KITCHEN_ITEMS,
-  ...ELECTRONIC_ITEMS,
-  ...OTHER_CATEGORIES,
-  ...ACCESSORIES_ITEMS,
-];
+// ALL_ITEMS sekarang diambil dari hook usePricingData (live dari Google Sheets)
+// Fallback ke data hardcode jika offline
 
 const CATEGORY_TABS = [
   {
@@ -550,9 +542,9 @@ const CATEGORY_TABS = [
   },
 ];
 
-function buildInitialState(): CalculatorState {
+function buildInitialState(items: FurnitureItemConfig[]): CalculatorState {
   const state: CalculatorState = {};
-  for (const item of ALL_ITEMS) {
+  for (const item of items) {
     state[item.id] = [
       {
         instanceId: `${item.id}_0`,
@@ -662,6 +654,15 @@ const EXPORT_COLOR_PRESETS = [
 ];
 
 export function CostCalculator() {
+  // ─── Live Pricing Data (dari Google Sheets via usePricingData) ──────────────
+  const {
+    allItems: ALL_ITEMS,
+    provinces: PROVINCES_DATA,
+    isLive: isPricingLive,
+    lastUpdated: pricingLastUpdated,
+    error: pricingError,
+  } = usePricingData();
+
   // Ref & State for Mobile Sticky "Lihat RAB" Button
   const summaryCardRef = useRef<HTMLDivElement>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
@@ -748,8 +749,37 @@ export function CostCalculator() {
     "kitchen" | "wardrobe" | "living" | "bedroom"
   >("kitchen");
 
-  // State: Item configurations
-  const [itemsState, setItemsState] = useState<CalculatorState>(buildInitialState);
+  // State: Item configurations — diinisialisasi dari ALL_ITEMS (live dari hook)
+  const [itemsState, setItemsState] = useState<CalculatorState>(() => buildInitialState(ALL_ITEMS));
+
+  // Saat ALL_ITEMS berubah (setelah data live dari API dimuat),
+  // tambahkan item baru yang belum ada di state tanpa mereset state yang sudah ada
+  useEffect(() => {
+    if (!ALL_ITEMS || ALL_ITEMS.length === 0) return;
+    setItemsState((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const item of ALL_ITEMS) {
+        if (!next[item.id]) {
+          next[item.id] = [{
+            instanceId: `${item.id}_0`,
+            itemId: item.id,
+            enabled: false,
+            optionId: item.options[0]?.id ?? "",
+            length: 0,
+            height: 0,
+            qty: 0,
+            layout: "lurus",
+            length2: 0,
+            length3: 0,
+          }];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ALL_ITEMS]);
 
   // State: Kitchen Electronics Accordion (opened by default)
   const [showElectronics, setShowElectronics] = useState(false);
@@ -780,12 +810,13 @@ export function CostCalculator() {
 
   // Resolve Province and City objects
   const selectedProvince = useMemo(() => {
+    if (!PROVINCES_DATA || PROVINCES_DATA.length === 0) return { id: "jabar", name: "Jawa Barat", cities: [] };
     return (
       PROVINCES_DATA.find((p) => p.id === selectedProvinceId) ?? PROVINCES_DATA[0]
     );
-  }, [selectedProvinceId]);
+  }, [selectedProvinceId, PROVINCES_DATA]);
 
-  const availableCities = selectedProvince.cities;
+  const availableCities = selectedProvince?.cities ?? [];
 
   const selectedCity = useMemo(() => {
     return (
@@ -794,7 +825,7 @@ export function CostCalculator() {
   }, [availableCities, selectedCityId]);
 
   // Determine Region (Dalam Kota DK vs Luar Kota LK)
-  const region: Region = selectedCity.isDK ? "DK" : "LK";
+  const region: Region = selectedCity?.isDK ? "DK" : "LK";
 
   // Handle province change: update city to first city in new province
   const handleProvinceChange = (newProvId: string) => {
@@ -1011,7 +1042,7 @@ export function CostCalculator() {
 
   // Reset entire calculator to initial state
   const handleReset = () => {
-    setItemsState(buildInitialState());
+    setItemsState(buildInitialState(ALL_ITEMS));
     setCustomAccessories({
       kitchen: [{ id: "custom_acc_kitchen_1", name: "", price: "", qty: "" }],
       wardrobe: [{ id: "custom_acc_wardrobe_1", name: "", price: "", qty: "" }],
@@ -1328,11 +1359,12 @@ export function CostCalculator() {
   }, [itemsState, region, customAccessories]);
 
   const activeCategoryItems = useMemo(() => {
+    if (!ALL_ITEMS) return [];
     if (activeCategory === "kitchen") {
-      return KITCHEN_ITEMS;
+      return ALL_ITEMS.filter((item) => item.category === "kitchen" || item.category === "electronics");
     }
-    return OTHER_CATEGORIES.filter((item) => item.category === activeCategory);
-  }, [activeCategory]);
+    return ALL_ITEMS.filter((item) => item.category === activeCategory);
+  }, [activeCategory, ALL_ITEMS]);
 
   // Compute selected count per category (hanya menghitung unit yang aktif dengan subtotal > 0)
   const categoryCounts = useMemo(() => {
@@ -1349,17 +1381,11 @@ export function CostCalculator() {
       return c.subtotal > 0;
     };
 
-    for (const item of KITCHEN_ITEMS) {
+    if (!ALL_ITEMS) return counts;
+    for (const item of ALL_ITEMS) {
       const active = (itemsState[item.id] || []).filter((i) => isInstanceActive(item, i)).length;
-      counts.kitchen += active;
-    }
-    for (const item of ELECTRONIC_ITEMS) {
-      const active = (itemsState[item.id] || []).filter((i) => isInstanceActive(item, i)).length;
-      counts.kitchen += active;
-    }
-    for (const item of OTHER_CATEGORIES) {
-      const active = (itemsState[item.id] || []).filter((i) => isInstanceActive(item, i)).length;
-      if (item.category === "wardrobe") counts.wardrobe += active;
+      if (item.category === "kitchen" || item.category === "electronics") counts.kitchen += active;
+      else if (item.category === "wardrobe") counts.wardrobe += active;
       else if (item.category === "living") counts.living += active;
       else if (item.category === "bedroom") counts.bedroom += active;
     }
@@ -1702,9 +1728,28 @@ export function CostCalculator() {
       <div className="rounded-3xl bg-card border border-border p-6 sm:p-8 lg:p-10 mb-8 shadow-xs">
         {/* Top Header Intro */}
         <div className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider mb-3">
-            <Sparkles className="size-3.5" />
-            Kalkulator Biaya Custom Transparan
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider">
+              <Sparkles className="size-3.5" />
+              Kalkulator Biaya Custom Transparan
+            </div>
+            {/* Badge status data live/offline */}
+            {isPricingLive ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-[11px] font-semibold">
+                <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
+                Harga Terbaru
+                {pricingLastUpdated && (
+                  <span className="opacity-70 font-normal">
+                    · {pricingLastUpdated.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-semibold">
+                <span className="size-1.5 rounded-full bg-amber-500" />
+                Mode Offline
+              </div>
+            )}
           </div>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold text-foreground tracking-tight">
             Simulasi Estimasi Biaya Furniture
@@ -1713,6 +1758,11 @@ export function CostCalculator() {
             Pilih lokasi pemasangan Anda dan kombinasikan komponen furniture yang Anda butuhkan.
             Tarif dihitung otomatis secara transparan sesuai area jangkauan workshop.
           </p>
+          {pricingError && (
+            <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg px-3 py-1.5">
+              ⚠️ {pricingError}
+            </p>
+          )}
         </div>
 
         {/* Input Controls: Data Akun & Klien + Area Pemasangan */}
@@ -2006,7 +2056,7 @@ export function CostCalculator() {
                     </div>
                   </div>
 
-                  {ELECTRONIC_ITEMS.map((item) => {
+                  {(ALL_ITEMS || []).filter(item => item.category === "electronics").map((item) => {
                     const instances = itemsState[item.id] || [];
                     return (
                       <ItemCard
