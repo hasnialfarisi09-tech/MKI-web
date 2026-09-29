@@ -45,6 +45,8 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Build Web Assets (Next.js)
+        env:
+          NEXT_PUBLIC_APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
         run: npm run build
 
       - name: Sync Capacitor Android
