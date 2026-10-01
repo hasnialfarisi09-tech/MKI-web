@@ -108,6 +108,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <Footer />
       <ScrollToTop />
       <FloatingCta />
+      {/* Dialog Notifikasi Update Aplikasi */}
+      <UpdateDialog updateState={updateState} />
     </>
   );
 }

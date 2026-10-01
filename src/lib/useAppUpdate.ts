@@ -41,6 +41,98 @@ export interface AppUpdateState {
   closeModal: () => void;
 }
 
+/**
+ * Mengambil informasi rilis terbaru dari beberapa sumber terpercaya:
+ * 1. File statis web lokal / hosting (/app-version.json)
+ * 2. GitHub Raw repository (update real-time saat developer push ke main)
+ * 3. GitHub Releases API (jika rilis dibuat via GitHub Releases)
+ * 4. Google Apps Script Web App (sebagai opsi cadangan)
+ */
+async function fetchRemoteVersionInfo(): Promise<AppVersionInfo | null> {
+  const cacheBuster = `t=${Date.now()}`;
+
+  // 1. Coba dari web lokal / domain hosting (/app-version.json)
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch(`/app-version.json?${cacheBuster}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.latestVersion) {
+          return data as AppVersionInfo;
+        }
+      }
+    } catch {
+      // Lanjut ke sumber berikutnya jika gagal (misal di native APK)
+    }
+  }
+
+  // 2. Coba dari GitHub Raw (sumber utama untuk APK Android di HP pengguna)
+  try {
+    const rawUrl = `https://raw.githubusercontent.com/hasnialfarisi09-tech/MKI-web/main/public/app-version.json?${cacheBuster}`;
+    const res = await fetch(rawUrl, {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.latestVersion) {
+        return data as AppVersionInfo;
+      }
+    }
+  } catch {
+    // Lanjut ke sumber berikutnya
+  }
+
+  // 3. Coba dari GitHub Releases resmi
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/hasnialfarisi09-tech/MKI-web/releases/latest",
+      {
+        headers: { Accept: "application/vnd.github.v3+json" },
+      }
+    );
+    if (res.ok) {
+      const release = await res.json();
+      if (release?.tag_name) {
+        const apkAsset = Array.isArray(release.assets)
+          ? release.assets.find((a: { name?: string }) => a.name?.endsWith(".apk"))
+          : null;
+        return {
+          latestVersion: release.tag_name.replace(/^v/i, ""),
+          downloadUrl: apkAsset?.browser_download_url || release.html_url || "",
+          changelog: release.body || "Pembaruan rilis versi terbaru.",
+          releaseDate: release.published_at ? release.published_at.slice(0, 10) : "",
+          forceUpdate: false,
+        };
+      }
+    }
+  } catch {
+    // Lanjut ke Apps Script
+  }
+
+  // 4. Cadangan: Google Apps Script Web App
+  if (APPS_SCRIPT_URL) {
+    try {
+      const res = await fetch(`${APPS_SCRIPT_URL}?action=app_version`, {
+        method: "GET",
+        redirect: "follow",
+        mode: "cors",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data && json.data.latestVersion) {
+          return json.data as AppVersionInfo;
+        }
+      }
+    } catch (err) {
+      console.warn("[useAppUpdate] Apps Script fallback gagal:", err);
+    }
+  }
+
+  return null;
+}
+
 export function useAppUpdate(): AppUpdateState {
   const [updateInfo, setUpdateInfo] = useState<AppVersionInfo | null>(null);
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -50,31 +142,13 @@ export function useAppUpdate(): AppUpdateState {
   const [manualCheckStatus, setManualCheckStatus] = useState<"idle" | "latest" | "error">("idle");
 
   const checkForUpdate = useCallback(async (isManual = false) => {
-    if (!APPS_SCRIPT_URL) {
-      if (isManual) setManualCheckStatus("error");
-      return;
-    }
-
     try {
       setIsChecking(true);
       if (isManual) setManualCheckStatus("idle");
 
-      const res = await fetch(`${APPS_SCRIPT_URL}?action=app_version`, {
-        method: "GET",
-        redirect: "follow",
-        mode: "cors",
-      });
+      const remote = await fetchRemoteVersionInfo();
 
-      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      const json = await res.json();
-
-      if (!json.success || !json.data) {
-        if (isManual) setManualCheckStatus("latest");
-        return;
-      }
-
-      const remote = json.data as AppVersionInfo;
-      if (!remote.latestVersion) {
+      if (!remote || !remote.latestVersion) {
         if (isManual) setManualCheckStatus("latest");
         return;
       }

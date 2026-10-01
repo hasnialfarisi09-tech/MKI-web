@@ -10,6 +10,8 @@ jobs:
   build-apk:
     name: Build Android Debug APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -69,3 +71,16 @@ jobs:
           name: Kalkulator-Interior-Offline-Debug-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+
+      - name: Publish APK to GitHub Releases (latest)
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: Kalkulator Interior APK (Terbaru)
+          body: |
+            APK Kalkulator Interior versi terbaru.
+            Otomatis di-generate dan diperbarui oleh GitHub Actions saat rilis baru di-push ke main.
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
