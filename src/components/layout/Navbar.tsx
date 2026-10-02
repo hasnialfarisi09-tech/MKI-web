@@ -2,6 +2,7 @@ import { IconBrandWhatsapp } from "@tabler/icons-react";
 import { Logo } from "@/components/layout/Logo";
 import { NavLinks } from "@/components/layout/NavLinks";
 import { MobileMenu } from "@/components/layout/MobileMenu";
+import { RefreshButton } from "@/components/layout/RefreshButton";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { ctaLabels } from "@/constants/content";
@@ -14,6 +15,7 @@ export function Navbar() {
         <Logo compact />
         <NavLinks />
         <div className="hidden items-center gap-3 justify-self-end xl:flex">
+          <RefreshButton />
           <ThemeToggle />
           <Button asChild>
             <a href={createWhatsAppLink()} target="_blank" rel="noreferrer">
@@ -23,6 +25,7 @@ export function Navbar() {
           </Button>
         </div>
         <div className="flex items-center gap-2 xl:hidden">
+          <RefreshButton />
           <ThemeToggle />
           <MobileMenu />
         </div>

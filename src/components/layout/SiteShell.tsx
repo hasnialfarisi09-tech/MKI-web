@@ -13,8 +13,10 @@ import { SmoothScroll } from "@/components/layout/SmoothScroll";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { FloatingCta } from "@/components/layout/FloatingCta";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { RefreshButton } from "@/components/layout/RefreshButton";
 import { useAppUpdate } from "@/lib/useAppUpdate";
 import { UpdateDialog, CheckUpdateButton } from "@/components/common/UpdateDialog";
+import { AppSettingsDialog } from "@/components/common/AppSettingsDialog";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -54,6 +56,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
+              <RefreshButton />
               <ThemeToggle />
               {!isNative && (
                 <Link
@@ -83,12 +86,11 @@ export function SiteShell({ children }: { children: ReactNode }) {
             <p className="text-[11px] text-muted-foreground/80 pt-2">
               © {new Date().getFullYear()} Estimasi Biaya Interior Custom. Hak cipta dilindungi.
             </p>
-            {/* Tombol Cek Update — hanya tampil di native Android */}
-            {isNative && (
-              <div className="pt-2 flex justify-center">
-                <CheckUpdateButton updateState={updateState} />
-              </div>
-            )}
+            {/* Opsi Pengaturan & Cek Update */}
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+              {isNative && <CheckUpdateButton updateState={updateState} />}
+              <AppSettingsDialog />
+            </div>
           </div>
         </footer>
 
