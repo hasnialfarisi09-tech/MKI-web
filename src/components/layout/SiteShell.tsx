@@ -100,21 +100,23 @@ export function SiteShell({ children }: { children: ReactNode }) {
             <p className="text-[11px] text-muted-foreground/80 pt-2">
               © {new Date().getFullYear()} Estimasi Biaya Interior Custom. Hak cipta dilindungi.
             </p>
-            {/* Opsi Pengaturan & Cek Update */}
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
-              {isNative && <CheckUpdateButton updateState={updateState} />}
-              <AppSettingsDialog />
-            </div>
+            {/* Opsi Pengaturan & Cek Update — hanya tampil di native Android */}
+            {isNative && (
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                <CheckUpdateButton updateState={updateState} />
+                <AppSettingsDialog />
+              </div>
+            )}
           </div>
         </footer>
 
-        {/* Dialog Notifikasi Update Aplikasi */}
-        <UpdateDialog updateState={updateState} />
+        {/* Dialog Notifikasi Update Aplikasi — hanya tampil di native Android */}
+        {isNative && <UpdateDialog updateState={updateState} />}
       </div>
     );
   }
 
-  // Standard brand shell for regular pages
+  // Standard brand shell for regular pages (website biasa, tanpa dialog update aplikasi)
   return (
     <>
       <ScrollProgress />
@@ -124,8 +126,6 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <Footer />
       <ScrollToTop />
       <FloatingCta />
-      {/* Dialog Notifikasi Update Aplikasi */}
-      <UpdateDialog updateState={updateState} />
     </>
   );
 }

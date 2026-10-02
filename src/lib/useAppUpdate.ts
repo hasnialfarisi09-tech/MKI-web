@@ -167,6 +167,11 @@ export function useAppUpdate(): AppUpdateState {
   const [manualCheckStatus, setManualCheckStatus] = useState<"idle" | "latest" | "error">("idle");
 
   const checkForUpdate = useCallback(async (isManual = false) => {
+    // Khusus Android Native: jangan jalankan pengecekan update jika diakses dari website browser biasa
+    if (typeof window === "undefined" || !Capacitor.isNativePlatform()) {
+      return;
+    }
+
     try {
       setIsChecking(true);
       if (isManual) setManualCheckStatus("idle");
@@ -229,8 +234,10 @@ export function useAppUpdate(): AppUpdateState {
     }
   }, [manualCheckStatus]);
 
-  // Cek otomatis saat pertama kali dibuka
+  // Cek otomatis saat pertama kali dibuka (hanya di native Android)
   useEffect(() => {
+    if (typeof window === "undefined" || !Capacitor.isNativePlatform()) return;
+
     // Delay 2 detik agar tidak bentrok dengan initial render / pricing fetch
     const timer = setTimeout(() => {
       checkForUpdate(false);

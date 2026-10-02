@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Download, Sparkles, AlertTriangle, ArrowRight, CheckCircle2, RefreshCw, X } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { AppUpdateState } from "@/lib/useAppUpdate";
 
 interface UpdateDialogProps {
@@ -9,6 +10,11 @@ interface UpdateDialogProps {
 }
 
 export function UpdateDialog({ updateState }: UpdateDialogProps) {
+  // Hanya aktif di platform native Android, tidak pernah muncul di website biasa
+  if (typeof window === "undefined" || !Capacitor.isNativePlatform()) {
+    return null;
+  }
+
   const {
     currentVersion,
     updateInfo,
@@ -185,6 +191,10 @@ export function UpdateDialog({ updateState }: UpdateDialogProps) {
  * Tombol kecil "Cek Update" untuk dipasang di footer atau header
  */
 export function CheckUpdateButton({ updateState }: { updateState: AppUpdateState }) {
+  if (typeof window === "undefined" || !Capacitor.isNativePlatform()) {
+    return null;
+  }
+
   const { isChecking, checkForUpdate, hasUpdate, openModal } = updateState;
 
   if (hasUpdate) {
