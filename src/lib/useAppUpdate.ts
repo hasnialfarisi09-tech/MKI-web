@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Capacitor } from "@capacitor/core";
 import { CURRENT_APP_VERSION, AppVersionInfo } from "@/constants/appVersion";
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
@@ -50,9 +51,28 @@ export interface AppUpdateState {
  */
 async function fetchRemoteVersionInfo(): Promise<AppVersionInfo | null> {
   const cacheBuster = `t=${Date.now()}`;
+  const isNative = typeof window !== "undefined" && Capacitor.isNativePlatform();
 
-  // 1. Coba dari web lokal / domain hosting (/app-version.json)
-  if (typeof window !== "undefined") {
+  // 1. Jika di Android Native (APK), utamakan GitHub Raw karena /app-version.json lokal di APK berisi versi lama saat APK di-build
+  if (isNative) {
+    try {
+      const rawUrl = `https://raw.githubusercontent.com/hasnialfarisi09-tech/MKI-web/main/public/app-version.json?${cacheBuster}`;
+      const res = await fetch(rawUrl, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.latestVersion) {
+          return data as AppVersionInfo;
+        }
+      }
+    } catch (e) {
+      console.warn("[useAppUpdate] Gagal fetch GitHub Raw di Android:", e);
+    }
+  }
+
+  // 2. Coba dari web lokal / domain hosting (/app-version.json)
+  if (!isNative && typeof window !== "undefined") {
     try {
       const res = await fetch(`/app-version.json?${cacheBuster}`, {
         cache: "no-store",
@@ -64,24 +84,26 @@ async function fetchRemoteVersionInfo(): Promise<AppVersionInfo | null> {
         }
       }
     } catch {
-      // Lanjut ke sumber berikutnya jika gagal (misal di native APK)
+      // Lanjut ke sumber berikutnya jika gagal
     }
   }
 
-  // 2. Coba dari GitHub Raw (sumber utama untuk APK Android di HP pengguna)
-  try {
-    const rawUrl = `https://raw.githubusercontent.com/hasnialfarisi09-tech/MKI-web/main/public/app-version.json?${cacheBuster}`;
-    const res = await fetch(rawUrl, {
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.latestVersion) {
-        return data as AppVersionInfo;
+  // 3. Fallback GitHub Raw (jika belum dicoba pada mode web)
+  if (!isNative) {
+    try {
+      const rawUrl = `https://raw.githubusercontent.com/hasnialfarisi09-tech/MKI-web/main/public/app-version.json?${cacheBuster}`;
+      const res = await fetch(rawUrl, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.latestVersion) {
+          return data as AppVersionInfo;
+        }
       }
+    } catch {
+      // Lanjut ke sumber berikutnya
     }
-  } catch {
-    // Lanjut ke sumber berikutnya
   }
 
   // 3. Coba dari GitHub Releases resmi
