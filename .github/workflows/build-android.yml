@@ -67,13 +67,13 @@ jobs:
 
       - name: Prepare Custom Named APK
         run: |
-          cp "android/app/build/outputs/apk/debug/app-debug.apk" "android/app/build/outputs/apk/debug/Estimasi Biaya (Versi terbaru).apk"
+          cp "android/app/build/outputs/apk/debug/app-debug.apk" "android/app/build/outputs/apk/debug/Estimasi.Biaya.Versi.terbaru.apk"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Estimasi-Biaya-Versi-Terbaru-APK
-          path: android/app/build/outputs/apk/debug/Estimasi Biaya (Versi terbaru).apk
+          path: android/app/build/outputs/apk/debug/Estimasi.Biaya.Versi.terbaru.apk
           retention-days: 30
 
       - name: Publish APK to GitHub Releases (latest)
@@ -86,7 +86,7 @@ jobs:
             APK Estimasi Biaya versi terbaru.
             Otomatis di-generate dan diperbarui oleh GitHub Actions saat rilis baru di-push ke main.
           files: |
-            android/app/build/outputs/apk/debug/Estimasi Biaya (Versi terbaru).apk
+            android/app/build/outputs/apk/debug/Estimasi.Biaya.Versi.terbaru.apk
             android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

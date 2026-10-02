@@ -1,7 +1,7 @@
 {
   "latestVersion": "1.4.0",
   "minVersion": "1.0.0",
-  "downloadUrl": "https://github.com/hasnialfarisi09-tech/MKI-web/releases/download/latest/Estimasi%20Biaya%20(Versi%20terbaru).apk",
+  "downloadUrl": "https://github.com/hasnialfarisi09-tech/MKI-web/releases/download/latest/Estimasi.Biaya.Versi.terbaru.apk",
   "changelog": "• Tombol refresh halaman langsung di header\n• Pengaturan izin aplikasi (Notifikasi, Lokasi, Jaringan)\n• Perbaikan stabilitas & kompatibilitas rute Simulasi Biaya\n• Auto-dismiss popup status setelah 5 detik",
   "forceUpdate": false,
   "releaseDate": "2026-10-02"
