@@ -4,6 +4,9 @@ import React, { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { usePathname } from "next/navigation";
+import { Capacitor } from "@capacitor/core";
+
 interface RefreshButtonProps {
   className?: string;
   showLabel?: boolean;
@@ -11,14 +14,23 @@ interface RefreshButtonProps {
 
 export function RefreshButton({ className, showLabel = false }: RefreshButtonProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const pathname = usePathname();
 
   const handleRefresh = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    // Beri sedikit jeda mikro (120ms) agar animasi putar icon terlihat oleh pengguna sebelum reload
+
+    const isNative = typeof window !== "undefined" && Capacitor.isNativePlatform();
+
     setTimeout(() => {
-      window.location.reload();
-    }, 120);
+      // Jika di aplikasi Android Native atau sedang membuka rute simulasi biaya,
+      // pastikan refresh tetap berada di halaman Simulasi Biaya
+      if (isNative || pathname?.startsWith("/simulasi-biaya")) {
+        window.location.replace("/simulasi-biaya/");
+      } else {
+        window.location.reload();
+      }
+    }, 150);
   };
 
   return (

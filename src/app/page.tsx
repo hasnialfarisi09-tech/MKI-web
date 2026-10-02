@@ -15,24 +15,28 @@ const SocialProofSection = dynamic(() => import("@/components/sections/SocialPro
 const FaqSection = dynamic(() => import("@/components/sections/FaqSection").then((m) => ({ default: m.FaqSection })));
 const ContactSection = dynamic(() => import("@/components/sections/ContactSection").then((m) => ({ default: m.ContactSection })));
 
+import { HomeContent } from "@/components/home/HomeContent";
+
 export default function Home() {
   return (
-    <main>
-      <HeroSection />
-      <StatsSection />
-      <AboutSection />
-      <ProductionCapacitySection />
-      <ServicesSection />
-      <PortfolioSection />
-      <PartnershipSection />
-      <GrowthPlanSection />
-      <WhyChooseUsSection />
-      <ProcessSection />
-      <CoverageSection />
-      <SocialProofSection />
-      <FaqSection />
-      <ContactSection />
-    </main>
+    <HomeContent>
+      <main>
+        <HeroSection />
+        <StatsSection />
+        <AboutSection />
+        <ProductionCapacitySection />
+        <ServicesSection />
+        <PortfolioSection />
+        <PartnershipSection />
+        <GrowthPlanSection />
+        <WhyChooseUsSection />
+        <ProcessSection />
+        <CoverageSection />
+        <SocialProofSection />
+        <FaqSection />
+        <ContactSection />
+      </main>
+    </HomeContent>
   );
 }
 

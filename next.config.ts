@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "export",
+  trailingSlash: true,
   // Compress output HTML/JS/CSS
   compress: true,
   images: {

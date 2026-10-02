@@ -21,14 +21,23 @@ import { AppSettingsDialog } from "@/components/common/AppSettingsDialog";
 export function SiteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isNative, setIsNative] = useState(false);
+  const [isNative, setIsNative] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return Capacitor.isNativePlatform();
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
   const updateState = useAppUpdate();
 
   useEffect(() => {
     const native = Capacitor.isNativePlatform();
     setIsNative(native);
-    if (native && pathname === "/") {
-      router.replace("/simulasi-biaya");
+    if (native && (pathname === "/" || pathname === "")) {
+      router.replace("/simulasi-biaya/");
     }
   }, [pathname, router]);
 
