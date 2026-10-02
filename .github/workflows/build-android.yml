@@ -65,11 +65,15 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace --no-daemon
 
+      - name: Prepare Custom Named APK
+        run: |
+          cp "android/app/build/outputs/apk/debug/app-debug.apk" "android/app/build/outputs/apk/debug/Estimasi Biaya (Versi terbaru).apk"
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kalkulator-Interior-Offline-Debug-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Estimasi-Biaya-Versi-Terbaru-APK
+          path: android/app/build/outputs/apk/debug/Estimasi Biaya (Versi terbaru).apk
           retention-days: 30
 
       - name: Publish APK to GitHub Releases (latest)
@@ -77,10 +81,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: Kalkulator Interior APK (Terbaru)
+          name: Estimasi Biaya (Versi terbaru)
           body: |
-            APK Kalkulator Interior versi terbaru.
+            APK Estimasi Biaya versi terbaru.
             Otomatis di-generate dan diperbarui oleh GitHub Actions saat rilis baru di-push ke main.
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            android/app/build/outputs/apk/debug/Estimasi Biaya (Versi terbaru).apk
+            android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

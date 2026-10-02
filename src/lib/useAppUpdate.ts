@@ -119,7 +119,8 @@ async function fetchRemoteVersionInfo(): Promise<AppVersionInfo | null> {
       const release = await res.json();
       if (release?.tag_name) {
         const apkAsset = Array.isArray(release.assets)
-          ? release.assets.find((a: { name?: string }) => a.name?.endsWith(".apk"))
+          ? (release.assets.find((a: { name?: string }) => a.name?.includes("Estimasi Biaya")) ||
+             release.assets.find((a: { name?: string }) => a.name?.endsWith(".apk")))
           : null;
         return {
           latestVersion: release.tag_name.replace(/^v/i, ""),
