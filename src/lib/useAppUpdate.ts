@@ -38,6 +38,7 @@ export interface AppUpdateState {
   manualCheckStatus: "idle" | "latest" | "error";
   checkForUpdate: (isManual?: boolean) => Promise<void>;
   dismissUpdate: () => void;
+  dismissToast: () => void;
   openModal: () => void;
   closeModal: () => void;
 }
@@ -213,6 +214,16 @@ export function useAppUpdate(): AppUpdateState {
     }
   }, []);
 
+  // Otomatis hilangkan toast status pengecekan manual (hijau/merah) setelah 5 detik
+  useEffect(() => {
+    if (manualCheckStatus !== "idle") {
+      const timer = setTimeout(() => {
+        setManualCheckStatus("idle");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [manualCheckStatus]);
+
   // Cek otomatis saat pertama kali dibuka
   useEffect(() => {
     // Delay 2 detik agar tidak bentrok dengan initial render / pricing fetch
@@ -239,6 +250,10 @@ export function useAppUpdate(): AppUpdateState {
     if (!isForceUpdate) setIsModalOpen(false);
   }, [isForceUpdate]);
 
+  const dismissToast = useCallback(() => {
+    setManualCheckStatus("idle");
+  }, []);
+
   return {
     currentVersion: CURRENT_APP_VERSION,
     updateInfo,
@@ -249,6 +264,7 @@ export function useAppUpdate(): AppUpdateState {
     manualCheckStatus,
     checkForUpdate,
     dismissUpdate,
+    dismissToast,
     openModal,
     closeModal,
   };

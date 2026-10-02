@@ -18,6 +18,7 @@ export function UpdateDialog({ updateState }: UpdateDialogProps) {
     isChecking,
     dismissUpdate,
     closeModal,
+    dismissToast,
   } = updateState;
 
   // Handler download APK
@@ -26,21 +27,54 @@ export function UpdateDialog({ updateState }: UpdateDialogProps) {
     window.open(updateInfo.downloadUrl, "_blank");
   };
 
-  // Toast untuk status pengecekan manual (jika sudah versi terbaru)
+  // Toast untuk status pengecekan manual (jika sudah versi terbaru - otomatis hilang dalam 5 detik)
   if (manualCheckStatus === "latest" && !isModalOpen) {
     return (
-      <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-emerald-600 text-white shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-300">
+      <div
+        role="status"
+        aria-live="polite"
+        onClick={dismissToast}
+        className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-emerald-600 text-white shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-300 cursor-pointer hover:bg-emerald-700 transition-colors"
+        title="Klik untuk menutup"
+      >
         <CheckCircle2 className="size-4 shrink-0 text-emerald-200" />
         <span className="text-xs font-medium">Aplikasi sudah dalam versi terbaru (v{currentVersion}).</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            dismissToast();
+          }}
+          className="ml-1 p-0.5 rounded-full hover:bg-white/20 transition-colors"
+          aria-label="Tutup pemberitahuan"
+        >
+          <X className="size-3.5 text-white/80" />
+        </button>
       </div>
     );
   }
 
   if (manualCheckStatus === "error" && !isModalOpen) {
     return (
-      <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-rose-600 text-white shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-300">
+      <div
+        role="alert"
+        onClick={dismissToast}
+        className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-rose-600 text-white shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-300 cursor-pointer hover:bg-rose-700 transition-colors"
+        title="Klik untuk menutup"
+      >
         <AlertTriangle className="size-4 shrink-0 text-rose-200" />
         <span className="text-xs font-medium">Tidak dapat memeriksa pembaruan. Cek koneksi Anda.</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            dismissToast();
+          }}
+          className="ml-1 p-0.5 rounded-full hover:bg-white/20 transition-colors"
+          aria-label="Tutup pemberitahuan"
+        >
+          <X className="size-3.5 text-white/80" />
+        </button>
       </div>
     );
   }
