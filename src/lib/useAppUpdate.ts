@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
 import { CURRENT_APP_VERSION, AppVersionInfo } from "@/constants/appVersion";
+import { sendAppUpdateNotification } from "@/lib/appNotifications";
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 const DISMISSED_KEY_PREFIX = "mki_dismissed_update_";
@@ -187,6 +188,9 @@ export function useAppUpdate(): AppUpdateState {
       setIsForceUpdate(isMandatory);
 
       if (isNewer) {
+        // Picu notifikasi status bar sistem Android
+        sendAppUpdateNotification(remote.latestVersion, remote.changelog);
+
         // Cek apakah user pernah dismiss versi ini (hanya berlaku jika bukan force update)
         let isDismissed = false;
         if (!isMandatory && !isManual) {

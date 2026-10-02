@@ -17,6 +17,7 @@ import { RefreshButton } from "@/components/layout/RefreshButton";
 import { useAppUpdate } from "@/lib/useAppUpdate";
 import { UpdateDialog, CheckUpdateButton } from "@/components/common/UpdateDialog";
 import { AppSettingsDialog } from "@/components/common/AppSettingsDialog";
+import { initNotificationChannels, requestNotificationPermission } from "@/lib/appNotifications";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -36,6 +37,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const native = Capacitor.isNativePlatform();
     setIsNative(native);
+    if (native) {
+      initNotificationChannels();
+      requestNotificationPermission();
+    }
     if (native && (pathname === "/" || pathname === "")) {
       router.replace("/simulasi-biaya/");
     }

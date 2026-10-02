@@ -12,6 +12,7 @@ import {
   OTHER_CATEGORIES,
   PROVINCES_DATA,
 } from "@/data/pricing-calculator";
+import { sendPricingUpdateNotification } from "@/lib/appNotifications";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -191,6 +192,20 @@ export function usePricingData(): PricingDataState {
           Array.isArray(locations) && locations.length > 0
             ? locations
             : fallback.provinces;
+
+        // Cek apakah data dari Google Sheets berbeda dari cache sebelumnya (ada perubahan harga/item)
+        const isDataChanged =
+          Boolean(cached) &&
+          (cached!.allItems.length !== pricing.length ||
+            JSON.stringify(cached!.allItems) !== JSON.stringify(pricing));
+
+        if (isDataChanged) {
+          sendPricingUpdateNotification({
+            itemCount: pricing.length,
+            lastUpdatedDate: new Date(),
+            customMessage: `Terdapat pembaruan harga material atau item baru dari Google Sheets (${pricing.length} item aktif).`,
+          });
+        }
 
         setAllItems(pricing);
         setProvinces(resolvedProvinces);
