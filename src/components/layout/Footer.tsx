@@ -78,7 +78,10 @@ export function Footer() {
           <p>
             Copyright {new Date().getFullYear()} {company.name}. {footerContent.copyright}
           </p>
-          <div className="flex flex-wrap gap-5">
+          <div className="flex flex-wrap items-center gap-5">
+            <Link className="transition hover:text-white" href="/privacy-policy">
+              Kebijakan Privasi
+            </Link>
             {partnerships.map((item) => (
               <Link className="transition hover:text-white" href="#partnership" key={item.id}>
                 {item.segment}
