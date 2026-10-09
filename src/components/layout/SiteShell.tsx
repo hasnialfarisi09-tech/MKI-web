@@ -48,21 +48,36 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
   const isSimulation = pathname?.startsWith("/simulasi-biaya") || isNative;
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (isSimulation) {
+        document.documentElement.classList.add("simulation-page");
+      } else {
+        document.documentElement.classList.remove("simulation-page");
+      }
+    }
+  }, [isSimulation]);
+
   if (isSimulation) {
-    // White-label page: completely free of brand identity
+    // White-label page: completely free of brand identity with Luxury Emerald & Jade palette
     return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <div className="min-h-screen bg-background text-foreground flex flex-col simulation-theme">
         {/* Neutral Header (No Brand Identity) */}
-        <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-xl">
+        <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-xl bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-800 text-white shadow-md shadow-emerald-500/20 flex items-center justify-center shrink-0">
                 <Calculator className="size-5" />
               </div>
               <div>
-                <h1 className="text-sm sm:text-base font-bold text-foreground leading-tight">
-                  Kalkulator Interior Custom
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-sm sm:text-base font-bold text-foreground leading-tight">
+                    Kalkulator Interior Custom
+                  </h1>
+                  <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-primary/10 text-primary border border-primary/25 tracking-wide">
+                    PRO
+                  </span>
+                </div>
                 <p className="text-[11px] text-muted-foreground leading-none">
                   Simulasi Biaya Transparan & Terstandarisasi
                 </p>
@@ -75,7 +90,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
               {!isNative && (
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
                 >
                   <ArrowLeft className="size-3.5" />
                   <span className="hidden sm:inline">Kembali ke</span> Beranda

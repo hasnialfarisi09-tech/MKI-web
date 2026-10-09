@@ -12,7 +12,7 @@ type LogoProps = {
 
 export function Logo({ dark = false, compact = false, fullText = false, className }: LogoProps) {
   return (
-    <Link href="#home" className={cn("group flex min-w-0 items-center gap-3", compact && "mt-1", className)} aria-label={company.name}>
+    <Link href="/#home" className={cn("group flex min-w-0 items-center gap-3", className)} aria-label={company.name}>
       <span
         className={cn(
           "relative flex shrink-0 items-center justify-start",

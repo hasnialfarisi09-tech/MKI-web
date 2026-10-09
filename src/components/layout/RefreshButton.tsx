@@ -43,7 +43,7 @@ export function RefreshButton({ className, showLabel = false }: RefreshButtonPro
       title="Muat ulang halaman"
       className={cn(
         "relative flex items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition-all duration-300",
-        "hover:border-mki-orange hover:bg-orange-50 hover:text-mki-orange hover:shadow-glow dark:hover:bg-orange-950/30 active:scale-95 disabled:opacity-60",
+        "hover:border-primary hover:bg-primary/10 hover:text-primary active:scale-95 disabled:opacity-60",
         showLabel ? "h-9 px-3 gap-1.5 text-xs font-medium" : "size-9",
         className
       )}
@@ -51,7 +51,7 @@ export function RefreshButton({ className, showLabel = false }: RefreshButtonPro
       <RefreshCw
         className={cn(
           "size-[18px] transition-transform duration-500",
-          isRefreshing && "animate-spin text-mki-orange"
+          isRefreshing && "animate-spin text-primary"
         )}
       />
       {showLabel && <span>{isRefreshing ? "Memuat..." : "Refresh"}</span>}

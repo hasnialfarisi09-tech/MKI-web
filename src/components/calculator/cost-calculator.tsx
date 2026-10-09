@@ -59,6 +59,8 @@ export const LAYOUT_ENABLED_ITEMS = [
   "cab_atas",
   "cab_atas_full_plafond",
   "lemari_pakaian",
+  "top_table",
+  "backsplash",
 ];
 
 export function calculateCabinetLayout(
@@ -119,8 +121,8 @@ export function calculateCabinetLayout(
     };
   }
 
-  // 2. Kabinet Bawah (Unit M1)
-  if (itemId === "cab_bawah") {
+  // 2. Kabinet Bawah & Top Table (Unit M1)
+  if (itemId === "cab_bawah" || itemId === "top_table") {
     if (layout === "l_shape") {
       const eff = Math.max(0, Math.round((p1 + p2 - 0.6) * 100) / 100);
       return {
@@ -228,6 +230,43 @@ export function calculateCabinetLayout(
       effectiveM2: 0,
       formulaDescription: `${p1}m × 2 tingkat = ${eff} M1`,
       formulaLabel: "(P × 2) × Tarif",
+      layoutName: "Lurus",
+      unit: "M1",
+    };
+  }
+
+  // 5. Backsplash Dinding Kitchen (Unit M1, tanpa potongan sudut)
+  if (itemId === "backsplash") {
+    if (layout === "l_shape") {
+      const eff = Math.max(0, Math.round((p1 + p2) * 100) / 100);
+      return {
+        effectiveMeasurement: eff,
+        effectiveM1: eff,
+        effectiveM2: 0,
+        formulaDescription: `(${p1}m + ${p2}m) = ${eff} M1`,
+        formulaLabel: "(P1 + P2) × Tarif",
+        layoutName: "Shape L",
+        unit: "M1",
+      };
+    }
+    if (layout === "u_shape") {
+      const eff = Math.max(0, Math.round((p1 + p2 + p3) * 100) / 100);
+      return {
+        effectiveMeasurement: eff,
+        effectiveM1: eff,
+        effectiveM2: 0,
+        formulaDescription: `(${p1}m + ${p2}m + ${p3}m) = ${eff} M1`,
+        formulaLabel: "(P1 + P2 + P3) × Tarif",
+        layoutName: "Shape U",
+        unit: "M1",
+      };
+    }
+    return {
+      effectiveMeasurement: p1,
+      effectiveM1: p1,
+      effectiveM2: 0,
+      formulaDescription: `${p1} M1`,
+      formulaLabel: "Panjang (P) × Tarif",
       layoutName: "Lurus",
       unit: "M1",
     };
@@ -646,11 +685,11 @@ function SimpleDropdown({
 }
 
 const EXPORT_COLOR_PRESETS = [
-  { name: "Terracotta MKI", primary: "#E5571F", secondary: "#1C1917" },
+  { name: "Emerald Luxury (Default)", primary: "#059669", secondary: "#064E3B" },
+  { name: "Teal Modern", primary: "#0D9488", secondary: "#134E4A" },
   { name: "Navy Executive", primary: "#1D4ED8", secondary: "#0F172A" },
-  { name: "Emerald Luxury", primary: "#059669", secondary: "#064E3B" },
-  { name: "Warm Amber", primary: "#D97706", secondary: "#451A03" },
-  { name: "Monochrome", primary: "#27272A", secondary: "#09090B" },
+  { name: "Royal Indigo", primary: "#4F46E5", secondary: "#1E1B4B" },
+  { name: "Monochrome Pro", primary: "#27272A", secondary: "#09090B" },
 ];
 
 export function CostCalculator() {
@@ -694,9 +733,9 @@ export function CostCalculator() {
     });
   };
 
-  // State: Export Document Theme Colors (Primary & Secondary)
-  const [exportPrimaryColor, setExportPrimaryColor] = useState<string>("#E5571F");
-  const [exportSecondaryColor, setExportSecondaryColor] = useState<string>("#1C1917");
+  // State: Export Document Theme Colors (Primary & Secondary - default Emerald Luxury)
+  const [exportPrimaryColor, setExportPrimaryColor] = useState<string>("#059669");
+  const [exportSecondaryColor, setExportSecondaryColor] = useState<string>("#064E3B");
   const isColorsInitialized = useRef(false);
 
   // State: Riwayat Estimasi Otomatis (LocalStorage)
@@ -711,8 +750,14 @@ export function CostCalculator() {
     setSavedSimulations(getSavedSimulationsFromStorage());
     const savedColors = getSavedExportColors();
     if (savedColors) {
-      setExportPrimaryColor(savedColors.primary);
-      setExportSecondaryColor(savedColors.secondary);
+      if (savedColors.primary.toLowerCase() === "#e5571f") {
+        // Auto-migrate legacy default orange to Emerald Luxury
+        setExportPrimaryColor("#059669");
+        setExportSecondaryColor("#064E3B");
+      } else {
+        setExportPrimaryColor(savedColors.primary);
+        setExportSecondaryColor(savedColors.secondary);
+      }
     }
     isColorsInitialized.current = true;
   }, []);
@@ -1054,12 +1099,12 @@ export function CostCalculator() {
     setClientName("");
     setClientAddress("");
     const savedColors = getSavedExportColors();
-    if (savedColors) {
+    if (savedColors && savedColors.primary.toLowerCase() !== "#e5571f") {
       setExportPrimaryColor(savedColors.primary);
       setExportSecondaryColor(savedColors.secondary);
     } else {
-      setExportPrimaryColor("#E5571F");
-      setExportSecondaryColor("#1C1917");
+      setExportPrimaryColor("#059669");
+      setExportSecondaryColor("#064E3B");
     }
     setActiveSimulationId(null);
   };
@@ -1360,9 +1405,6 @@ export function CostCalculator() {
 
   const activeCategoryItems = useMemo(() => {
     if (!ALL_ITEMS) return [];
-    if (activeCategory === "kitchen") {
-      return ALL_ITEMS.filter((item) => item.category === "kitchen" || item.category === "electronics");
-    }
     return ALL_ITEMS.filter((item) => item.category === activeCategory);
   }, [activeCategory, ALL_ITEMS]);
 
@@ -1724,58 +1766,51 @@ export function CostCalculator() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-      {/* Header Panel & Location Picker */}
-      <div className="rounded-3xl bg-card border border-border p-6 sm:p-8 lg:p-10 mb-8 shadow-xs">
-        {/* Top Header Intro */}
-        <div className="max-w-3xl">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider">
-              <Sparkles className="size-3.5" />
+      {/* Header Panel & Location Picker (Solid Flat Emerald Green Hero Card) */}
+      <div className="rounded-3xl bg-emerald-800 text-white border border-emerald-700 p-6 sm:p-8 lg:p-10 mb-8 shadow-md">
+        {/* Top Header Badges */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-emerald-700/80">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-900 text-emerald-100 text-xs font-bold uppercase tracking-wider border border-emerald-700">
+              <Sparkles className="size-3.5 text-emerald-300" />
               Kalkulator Biaya Custom Transparan
             </div>
             {/* Badge status data live/offline */}
             {isPricingLive ? (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-[11px] font-semibold">
-                <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-700 text-emerald-100 border border-emerald-600 text-[11px] font-semibold">
+                <span className="size-1.5 rounded-full bg-emerald-300 animate-pulse" />
                 Harga Terbaru
                 {pricingLastUpdated && (
-                  <span className="opacity-70 font-normal">
+                  <span className="opacity-80 font-normal">
                     · {pricingLastUpdated.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 )}
               </div>
             ) : (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-semibold">
-                <span className="size-1.5 rounded-full bg-amber-500" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-600/30 text-amber-200 border border-amber-500/40 text-[11px] font-semibold">
+                <span className="size-1.5 rounded-full bg-amber-300" />
                 Mode Offline
               </div>
             )}
           </div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold text-foreground tracking-tight">
-            Simulasi Estimasi Biaya Furniture
-          </h2>
-          <p className="mt-2 text-sm sm:text-base text-muted-foreground leading-relaxed">
-            Pilih lokasi pemasangan Anda dan kombinasikan komponen furniture yang Anda butuhkan.
-            Tarif dihitung otomatis secara transparan sesuai area jangkauan workshop.
-          </p>
           {pricingError && (
-            <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg px-3 py-1.5">
+            <p className="text-[11px] text-amber-200 bg-amber-950/80 border border-amber-500/40 rounded-lg px-3 py-1.5">
               ⚠️ {pricingError}
             </p>
           )}
         </div>
 
         {/* Input Controls: Data Akun & Klien + Area Pemasangan */}
-        <div className="mt-6 pt-6 border-t border-border grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+        <div className="mt-5 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
           {/* Box 1: Data Akun & Klien */}
-          <div className="lg:col-span-7 bg-background rounded-2xl p-4 sm:p-5 border border-border shadow-2xs flex flex-col justify-between">
+          <div className="lg:col-span-7 bg-emerald-900 rounded-2xl p-4 sm:p-5 border border-emerald-700 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                  <Building2 className="size-4 text-primary" />
+                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                  <Building2 className="size-4 text-emerald-300" />
                   <span>Identitas Akun & Klien:</span>
                 </div>
-                <span className="text-[11px] text-muted-foreground font-medium">
+                <span className="text-[11px] text-emerald-200 font-medium">
                   Tampil di Ekspor JPG / PDF
                 </span>
               </div>
@@ -1783,8 +1818,8 @@ export function CostCalculator() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Nama Akun */}
                 <div className="sm:col-span-2">
-                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-1">
-                    <Building2 className="size-3 text-primary" />
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-100 mb-1">
+                    <Building2 className="size-3 text-emerald-300" />
                     <span>Nama Akun:</span>
                   </label>
                   <input
@@ -1792,14 +1827,14 @@ export function CostCalculator() {
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
                     placeholder="Masukkan nama akun..."
-                    className="w-full h-9 px-3 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    className="w-full h-9 px-3 rounded-xl border border-emerald-700 bg-white text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition-colors shadow-2xs font-medium"
                   />
                 </div>
 
                 {/* Nama Client */}
                 <div>
-                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-1">
-                    <User className="size-3 text-primary" />
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-100 mb-1">
+                    <User className="size-3 text-emerald-300" />
                     <span>Nama Client:</span>
                   </label>
                   <input
@@ -1807,14 +1842,14 @@ export function CostCalculator() {
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
                     placeholder="Masukkan nama client..."
-                    className="w-full h-9 px-3 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    className="w-full h-9 px-3 rounded-xl border border-emerald-700 bg-white text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition-colors shadow-2xs font-medium"
                   />
                 </div>
 
                 {/* Alamat Client */}
                 <div>
-                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-1">
-                    <MapPin className="size-3 text-primary" />
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-100 mb-1">
+                    <MapPin className="size-3 text-emerald-300" />
                     <span>Alamat Client:</span>
                   </label>
                   <input
@@ -1822,7 +1857,7 @@ export function CostCalculator() {
                     value={clientAddress}
                     onChange={(e) => setClientAddress(e.target.value)}
                     placeholder="Masukkan alamat client..."
-                    className="w-full h-9 px-3 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    className="w-full h-9 px-3 rounded-xl border border-emerald-700 bg-white text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition-colors shadow-2xs font-medium"
                   />
                 </div>
               </div>
@@ -1830,17 +1865,17 @@ export function CostCalculator() {
           </div>
 
           {/* Box 2: Area Pemasangan */}
-          <div className="lg:col-span-5 bg-background rounded-2xl p-4 sm:p-5 border border-border shadow-2xs flex flex-col justify-between">
+          <div className="lg:col-span-5 bg-emerald-900 rounded-2xl p-4 sm:p-5 border border-emerald-700 flex flex-col justify-between">
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-foreground mb-3 px-0.5">
-                <MapPin className="size-4 text-primary" />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-white mb-3 px-0.5">
+                <MapPin className="size-4 text-emerald-300" />
                 <span>Pilih Area Pemasangan:</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Province Select */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                  <label className="block text-[11px] font-semibold text-emerald-100 mb-1">
                     Provinsi:
                   </label>
                   <SimpleDropdown
@@ -1852,7 +1887,7 @@ export function CostCalculator() {
 
                 {/* City Select */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                  <label className="block text-[11px] font-semibold text-emerald-100 mb-1">
                     Kota / Kabupaten:
                   </label>
                   <SimpleDropdown
@@ -1864,14 +1899,14 @@ export function CostCalculator() {
               </div>
             </div>
 
-            <p className="mt-3 text-[11px] text-muted-foreground/80 leading-normal">
+            <p className="mt-3 text-[11px] text-emerald-200 leading-normal">
               Tarif wilayah otomatis disesuaikan (Dalam Kota / Luar Kota).
             </p>
           </div>
         </div>
 
         {/* Category Navigation Tabs */}
-        <div className="mt-8 pt-6 border-t border-border flex flex-wrap gap-2 sm:gap-3">
+        <div className="mt-8 pt-6 border-t border-emerald-700/80 flex flex-wrap gap-2 sm:gap-3">
           {CATEGORY_TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeCategory === tab.id;
@@ -1886,20 +1921,20 @@ export function CostCalculator() {
                 className={cn(
                   "flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer select-none",
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary"
+                    ? "bg-white text-emerald-950 shadow-sm ring-2 ring-white/90 font-bold scale-[1.02]"
                     : hasSelected
-                      ? "bg-card text-foreground border border-primary/40 shadow-2xs hover:bg-primary/5 ring-1 ring-primary/20 font-semibold"
-                      : "bg-card text-muted-foreground hover:bg-muted border border-border"
+                      ? "bg-emerald-950 text-white border border-emerald-600 shadow-2xs hover:bg-emerald-950/80 font-semibold"
+                      : "bg-emerald-900 hover:bg-emerald-950 text-emerald-100 hover:text-white border border-emerald-700"
                 )}
               >
                 <Icon
                   className={cn(
                     "size-4 shrink-0 transition-colors",
                     isActive
-                      ? "text-primary-foreground"
+                      ? "text-emerald-950"
                       : hasSelected
-                        ? "text-primary"
-                        : "text-muted-foreground"
+                        ? "text-emerald-300"
+                        : "text-emerald-200"
                   )}
                 />
                 <span>{tab.label}</span>
@@ -1909,8 +1944,8 @@ export function CostCalculator() {
                     className={cn(
                       "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold leading-none shrink-0 transition-all",
                       isActive
-                        ? "bg-background text-primary shadow-xs"
-                        : "bg-primary text-primary-foreground shadow-xs"
+                        ? "bg-emerald-800 text-white shadow-2xs"
+                        : "bg-emerald-700 text-white shadow-2xs"
                     )}
                   >
                     <Check className="size-2.5 stroke-[3]" />
@@ -2469,7 +2504,8 @@ export function CostCalculator() {
           ref={summaryCardRef}
           className="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-24 space-y-6 scroll-mt-24"
         >
-          <div className="rounded-3xl bg-card border-2 border-primary/20 p-6 sm:p-7 shadow-sm">
+          <div className="relative overflow-hidden rounded-3xl bg-card border-2 border-primary/30 p-6 sm:p-7 shadow-md shadow-primary/5">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-600 via-teal-400 to-emerald-500" />
             <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wider text-primary">
@@ -2611,16 +2647,16 @@ export function CostCalculator() {
                     </label>
                   </div>
 
-                  {(exportPrimaryColor.toLowerCase() !== "#e5571f" ||
-                    exportSecondaryColor.toLowerCase() !== "#1c1917") && (
+                  {(exportPrimaryColor.toLowerCase() !== "#059669" ||
+                    exportSecondaryColor.toLowerCase() !== "#064e3b") && (
                     <button
                       type="button"
                       onClick={() => {
-                        setExportPrimaryColor("#E5571F");
-                        setExportSecondaryColor("#1C1917");
+                        setExportPrimaryColor("#059669");
+                        setExportSecondaryColor("#064E3B");
                       }}
                       className="text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                      title="Kembalikan warna default (Terracotta MKI)"
+                      title="Kembalikan warna default (Emerald Luxury)"
                     >
                       Reset
                     </button>
@@ -3069,16 +3105,16 @@ export function CostCalculator() {
                         <Palette className="size-3.5 text-primary" />
                         <span>Kustomisasi Warna:</span>
                       </div>
-                      {(exportPrimaryColor.toLowerCase() !== "#e5571f" ||
-                        exportSecondaryColor.toLowerCase() !== "#1c1917") && (
+                      {(exportPrimaryColor.toLowerCase() !== "#059669" ||
+                        exportSecondaryColor.toLowerCase() !== "#064e3b") && (
                         <button
                           type="button"
                           onClick={() => {
-                            setExportPrimaryColor("#E5571F");
-                            setExportSecondaryColor("#1C1917");
+                            setExportPrimaryColor("#059669");
+                            setExportSecondaryColor("#064E3B");
                           }}
                           className="text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                          title="Kembalikan warna default"
+                          title="Kembalikan warna default (Emerald Luxury)"
                         >
                           Reset
                         </button>
@@ -3731,10 +3767,20 @@ function UnitEditor({
 }: UnitEditorProps) {
   const selectId = useId();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!isDropdownOpen) return;
+    if (!isDropdownOpen) {
+      setSearchQuery("");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 60);
+
     function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
@@ -3749,6 +3795,7 @@ function UnitEditor({
     document.addEventListener("touchstart", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
+      clearTimeout(timer);
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
@@ -3761,9 +3808,20 @@ function UnitEditor({
   const calc = getInstanceCalculation(item, instance, region);
   const layoutResult = calc.layoutResult;
 
-  const groupedOptions = useMemo(() => {
+  const filteredGroupedOptions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     const groups: Array<{ groupName: string; options: typeof item.options }> = [];
-    for (const opt of item.options) {
+
+    const optionsToFilter = q
+      ? item.options.filter(
+          (opt) =>
+            opt.name.toLowerCase().includes(q) ||
+            opt.model.toLowerCase().includes(q) ||
+            (opt.description && opt.description.toLowerCase().includes(q))
+        )
+      : item.options;
+
+    for (const opt of optionsToFilter) {
       const existing = groups.find((g) => g.groupName === opt.name);
       if (existing) {
         existing.options.push(opt);
@@ -3772,7 +3830,11 @@ function UnitEditor({
       }
     }
     return groups;
-  }, [item]);
+  }, [item, searchQuery]);
+
+  const totalFilteredCount = useMemo(() => {
+    return filteredGroupedOptions.reduce((acc, g) => acc + g.options.length, 0);
+  }, [filteredGroupedOptions]);
 
   return (
     <div className="space-y-3.5">
@@ -3783,6 +3845,10 @@ function UnitEditor({
             <span className="text-xs font-semibold text-muted-foreground">
               {item.category === "wardrobe" || item.id === "lemari_pakaian"
                 ? "Pilihan Layout Lemari Pakaian:"
+                : item.id === "top_table"
+                ? "Pilihan Layout Bentuk Top Table:"
+                : item.id === "backsplash"
+                ? "Pilihan Layout Bentuk Backsplash:"
                 : "Pilihan Layout Bentuk Dapur:"}
             </span>
             <span className="text-[11px] font-bold text-primary">
@@ -3844,16 +3910,35 @@ function UnitEditor({
             >
               Pilihan Bahan Utama & Model:
             </label>
-            {item.options.length > 1 && (
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                onClick={() => {
+                  setIsDropdownOpen(true);
+                  setTimeout(() => searchInputRef.current?.focus(), 80);
+                }}
+                className={cn(
+                  "text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 transition-colors cursor-pointer",
+                  isDropdownOpen
+                    ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                    : "text-muted-foreground bg-muted/80 hover:bg-primary/10 hover:text-primary"
+                )}
+                title="Cari bahan utama & model"
               >
-                <span>{item.options.length} pilihan bahan</span>
-                <ChevronDown className={cn("size-3 transition-transform duration-200", isDropdownOpen && "rotate-180")} />
+                <Search className="size-3" />
+                <span>Cari</span>
               </button>
-            )}
+              {item.options.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                >
+                  <span>{item.options.length} pilihan bahan</span>
+                  <ChevronDown className={cn("size-3 transition-transform duration-200", isDropdownOpen && "rotate-180")} />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="relative" ref={dropdownRef}>
@@ -3894,83 +3979,144 @@ function UnitEditor({
               />
             </button>
 
-            {/* Custom Responsive Dropdown Menu */}
+            {/* Custom Responsive Dropdown Menu with Search */}
             {isDropdownOpen && (
               <div
                 role="listbox"
                 className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-72 sm:max-h-80 w-full overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl divide-y divide-border/40 focus:outline-none overscroll-contain"
               >
-                {groupedOptions.map(({ groupName, options }) => {
-                  const showHeader = groupedOptions.length > 1;
-
-                  return (
-                    <div key={groupName} className="py-0.5">
-                      {showHeader && (
-                        <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/80 sticky top-0 backdrop-blur-md z-10 flex items-center justify-between border-b border-border/40 mb-0.5">
-                          <span>{groupName}</span>
-                          <span className="font-medium text-[10px] lowercase text-muted-foreground/70">
-                            {options.length} model
-                          </span>
-                        </div>
-                      )}
-
-                      {options.map((opt) => {
-                        const isSelected = opt.id === instance?.optionId;
-                        const price = region === "DK" ? opt.priceDK : opt.priceLK;
-
-                        return (
-                          <button
-                            type="button"
-                            role="option"
-                            key={opt.id}
-                            aria-selected={isSelected}
-                            onClick={() => {
-                              onSelectOption(opt.id);
-                              setIsDropdownOpen(false);
-                            }}
-                            className={cn(
-                              "w-full text-left px-3.5 py-2.5 transition-colors flex items-center justify-between gap-3 cursor-pointer",
-                              isSelected
-                                ? "bg-primary/10 text-primary font-medium"
-                                : "hover:bg-muted text-foreground"
-                            )}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs sm:text-sm font-medium leading-snug">
-                                <span
-                                  className={
-                                    isSelected
-                                      ? "font-bold text-primary"
-                                      : "text-foreground font-semibold"
-                                  }
-                                >
-                                  {opt.model}
-                                </span>
-                                {!showHeader && (
-                                  <span className="text-muted-foreground font-normal text-[11px] sm:text-xs ml-1">
-                                    ({opt.name})
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] sm:text-xs font-bold text-primary mt-0.5">
-                                {formatRupiah(price)}{" "}
-                                <span className="font-normal text-muted-foreground">
-                                  / {opt.unit === "M2" ? (item.id === "dipan_ranjang" ? "M2 (P x L)" : "M2 (P x T)") : opt.unit === "UNIT" ? "QTY" : opt.unit}
-                                </span>
-                              </div>
-                            </div>
-
-                            {isSelected && (
-                              <div className="size-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0">
-                                <Check className="size-3 stroke-[3]" />
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
+                {/* Search Bar Input (Sticky Top) */}
+                <div className="sticky top-0 z-20 bg-card/95 backdrop-blur-md p-2 border-b border-border/60">
+                  <div className="relative flex items-center">
+                    <Search className="absolute left-2.5 size-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari bahan / model (Multiplek, HPL, Duco...)"
+                      className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl border border-border bg-muted/50 text-foreground placeholder:text-muted-foreground/70 focus:bg-background focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setIsDropdownOpen(false);
+                        }
+                      }}
+                    />
+                    {searchQuery ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSearchQuery("");
+                          searchInputRef.current?.focus();
+                        }}
+                        className="absolute right-2 size-4 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center text-muted-foreground transition-colors cursor-pointer"
+                        title="Hapus pencarian"
+                      >
+                        <X className="size-2.5" />
+                      </button>
+                    ) : null}
+                  </div>
+                  {searchQuery ? (
+                    <div className="mt-1 px-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>Hasil filter:</span>
+                      <span className="font-bold text-primary">{totalFilteredCount} model cocok</span>
                     </div>
-                  );
-                })}
+                  ) : null}
+                </div>
+
+                {/* Content: Filtered Options List or Empty State */}
+                {totalFilteredCount === 0 ? (
+                  <div className="p-5 text-center text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground">Bahan atau model tidak ditemukan.</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Kata kunci &quot;{searchQuery}&quot; tidak cocok.{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery("");
+                          searchInputRef.current?.focus();
+                        }}
+                        className="text-primary font-bold underline hover:no-underline cursor-pointer"
+                      >
+                        Reset pencarian
+                      </button>
+                    </p>
+                  </div>
+                ) : (
+                  filteredGroupedOptions.map(({ groupName, options }) => {
+                    const showHeader = filteredGroupedOptions.length > 1;
+
+                    return (
+                      <div key={groupName} className="py-0.5">
+                        {showHeader && (
+                          <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/80 sticky top-[49px] backdrop-blur-md z-10 flex items-center justify-between border-b border-border/40 mb-0.5">
+                            <span>{groupName}</span>
+                            <span className="font-medium text-[10px] lowercase text-muted-foreground/70">
+                              {options.length} model
+                            </span>
+                          </div>
+                        )}
+
+                        {options.map((opt) => {
+                          const isSelected = opt.id === instance?.optionId;
+                          const price = region === "DK" ? opt.priceDK : opt.priceLK;
+
+                          return (
+                            <button
+                              type="button"
+                              role="option"
+                              key={opt.id}
+                              aria-selected={isSelected}
+                              onClick={() => {
+                                onSelectOption(opt.id);
+                                setIsDropdownOpen(false);
+                              }}
+                              className={cn(
+                                "w-full text-left px-3.5 py-2.5 transition-colors flex items-center justify-between gap-3 cursor-pointer",
+                                isSelected
+                                  ? "bg-primary/10 text-primary font-medium"
+                                  : "hover:bg-muted text-foreground"
+                              )}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs sm:text-sm font-medium leading-snug">
+                                  <span
+                                    className={
+                                      isSelected
+                                        ? "font-bold text-primary"
+                                        : "text-foreground font-semibold"
+                                    }
+                                  >
+                                    {opt.model}
+                                  </span>
+                                  {!showHeader && (
+                                    <span className="text-muted-foreground font-normal text-[11px] sm:text-xs ml-1">
+                                      ({opt.name})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] sm:text-xs font-bold text-primary mt-0.5">
+                                  {formatRupiah(price)}{" "}
+                                  <span className="font-normal text-muted-foreground">
+                                    / {opt.unit === "M2" ? (item.id === "dipan_ranjang" ? "M2 (P x L)" : "M2 (P x T)") : opt.unit === "UNIT" ? "QTY" : opt.unit}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {isSelected && (
+                                <div className="size-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0">
+                                  <Check className="size-3 stroke-[3]" />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             )}
           </div>
@@ -4422,7 +4568,7 @@ function UnitEditor({
                       </div>
                       <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
                         <div className="flex items-center justify-between">
-                          <span>Potongan sudut:</span>
+                          <span>{item.id === "backsplash" ? "Total bentang (P1 + P2):" : "Potongan sudut:"}</span>
                           <span className="font-semibold text-foreground">
                             {layoutResult?.formulaDescription}
                           </span>
@@ -4506,7 +4652,7 @@ function UnitEditor({
                       </div>
                       <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 pt-0.5">
                         <div className="flex items-center justify-between">
-                          <span>Potongan 2 sudut:</span>
+                          <span>{item.id === "backsplash" ? "Total bentang (P1 + P2 + P3):" : "Potongan 2 sudut:"}</span>
                           <span className="font-semibold text-foreground">
                             {layoutResult?.formulaDescription}
                           </span>

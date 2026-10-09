@@ -17,7 +17,7 @@ export function ThemeToggle() {
     return (
       <button
         aria-label="Toggle theme"
-        className="relative flex size-9 items-center justify-center rounded-full border border-border bg-background text-foreground transition-all duration-300 hover:border-mki-orange hover:bg-orange-50 hover:text-mki-orange dark:hover:bg-orange-950/30"
+        className="relative flex size-9 items-center justify-center rounded-full border border-border bg-background text-foreground transition-all duration-300 hover:border-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20"
       >
         <span className="size-4" />
       </button>
@@ -32,7 +32,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Mode Terang" : "Mode Gelap"}
-      className="relative flex size-9 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-foreground shadow-sm transition-all duration-300 hover:border-mki-orange hover:bg-orange-50 hover:text-mki-orange hover:shadow-glow dark:hover:bg-orange-950/30"
+      className="relative flex size-9 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-foreground shadow-sm transition-all duration-300 hover:border-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20"
     >
       {/* Sun icon */}
       <IconSun

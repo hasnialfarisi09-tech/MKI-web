@@ -48,6 +48,33 @@
     --surface-elevated: 215 18% 14%;
   }
 
+  /* ── Dedicated Simulation Page Theme (Luxury Architectural Emerald & Nordic Jade) ── */
+  .simulation-theme,
+  html.simulation-page {
+    --primary: 164 80% 34%;            /* Rich Emerald Green (#0a8258 / #059669) */
+    --primary-foreground: 0 0% 100%;
+    --accent: 164 80% 34%;
+    --accent-foreground: 0 0% 100%;
+    --ring: 164 80% 34%;
+  }
+
+  .dark .simulation-theme,
+  .simulation-theme.dark,
+  html.dark.simulation-page,
+  html.dark .simulation-theme {
+    --primary: 160 84% 45%;            /* Luminous Emerald Jade (#10b981) */
+    --primary-foreground: 160 84% 5%;
+    --accent: 160 84% 45%;
+    --accent-foreground: 160 84% 5%;
+    --ring: 160 84% 45%;
+  }
+
+  .simulation-theme ::selection,
+  html.simulation-page ::selection {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
   * {
     @apply border-border;
   }

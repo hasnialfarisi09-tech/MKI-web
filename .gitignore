@@ -37,5 +37,6 @@ next-env.d.ts
 # local tool directories
 .claude/
 .agents/
+.vscode/
 test-results/
 

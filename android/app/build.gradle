@@ -7,8 +7,8 @@ android {
         applicationId "id.mki.kalkulatorinterior"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 6
-        versionName "1.5.0"
+        versionCode 7
+        versionName "1.6.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -23,13 +23,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (file('mki-release-key.jks').exists()) {
+                storeFile file('mki-release-key.jks')
+                storePassword System.getenv("MKI_KEYSTORE_PASSWORD") ?: "mkiPassword2026!"
+                keyAlias System.getenv("MKI_KEY_ALIAS") ?: "mki-release-key"
+                keyPassword System.getenv("MKI_KEY_PASSWORD") ?: "mkiPassword2026!"
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

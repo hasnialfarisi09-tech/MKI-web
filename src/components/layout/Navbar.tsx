@@ -10,21 +10,32 @@ import { createWhatsAppLink } from "@/lib/whatsapp";
 
 export function Navbar() {
   return (
-    <header className="fixed left-0 right-0 top-0 z-40 border-b border-border bg-background/85 backdrop-blur-xl dark:bg-background/90">
-      <div className="container grid h-[76px] grid-cols-[auto_auto] items-center justify-between gap-4 xl:grid-cols-[minmax(120px,auto)_1fr_auto]">
-        <Logo compact />
-        <NavLinks />
-        <div className="hidden items-center gap-3 justify-self-end xl:flex">
+    <header className="fixed left-0 right-0 top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl transition-all duration-200 dark:bg-background/90">
+      <div className="mx-auto flex h-[74px] w-full max-w-[1400px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        {/* Left: Brand Logo */}
+        <div className="flex shrink-0 items-center">
+          <Logo compact />
+        </div>
+
+        {/* Center: Desktop Navigation */}
+        <div className="hidden min-w-0 flex-1 items-center justify-center px-2 xl:flex">
+          <NavLinks />
+        </div>
+
+        {/* Right: Desktop Actions */}
+        <div className="hidden shrink-0 items-center gap-2.5 xl:flex">
           <RefreshButton />
           <ThemeToggle />
-          <Button asChild>
+          <Button asChild size="sm" className="h-9 rounded-full px-4 text-xs font-bold tracking-wide shadow-glow hover:shadow-soft">
             <a href={createWhatsAppLink()} target="_blank" rel="noreferrer">
-              <IconBrandWhatsapp className="size-4" />
-              {ctaLabels.consult}
+              <IconBrandWhatsapp className="size-4 shrink-0" />
+              <span>{ctaLabels.consult}</span>
             </a>
           </Button>
         </div>
-        <div className="flex items-center gap-2 xl:hidden">
+
+        {/* Mobile & Tablet Actions */}
+        <div className="flex shrink-0 items-center gap-2 xl:hidden">
           <RefreshButton />
           <ThemeToggle />
           <MobileMenu />

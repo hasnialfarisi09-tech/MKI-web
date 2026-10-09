@@ -13,8 +13,8 @@ export function MobileMenu() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="secondary" size="icon" className="xl:hidden" aria-label="Buka menu">
-          <IconMenu2 className="size-5" />
+        <Button variant="secondary" size="icon" className="size-9 rounded-full border border-border xl:hidden" aria-label="Buka menu">
+          <IconMenu2 className="size-[18px]" />
         </Button>
       </SheetTrigger>
       <SheetContent>

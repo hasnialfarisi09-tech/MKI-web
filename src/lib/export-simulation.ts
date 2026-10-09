@@ -56,9 +56,9 @@ export function createSimulationCanvas(
     throw new Error("Could not create canvas context");
   }
 
-  // Primary & Secondary Brand Colors (Customizable by user)
-  const primaryColor = data.primaryColor?.trim() || "#E5571F";
-  const secondaryColor = data.secondaryColor?.trim() || "#1C1917";
+  // Primary & Secondary Brand Colors (Customizable by user, default Emerald Luxury)
+  const primaryColor = data.primaryColor?.trim() || "#059669";
+  const secondaryColor = data.secondaryColor?.trim() || "#064E3B";
 
   // Base dimensions (1080px width for standard mobile/document export)
   const width = 1080;

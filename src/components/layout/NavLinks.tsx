@@ -34,22 +34,28 @@ export function NavLinks() {
   }, []);
 
   return (
-    <nav className="hidden min-w-0 items-center justify-center gap-1 xl:flex">
+    <nav className="flex items-center justify-center gap-0.5 xl:gap-1 2xl:gap-1.5">
       {navigationItems.map((item) => {
         const id = item.href.replace("/#", "");
         const isActive = id === active;
+        const isSimulation = item.href.includes("simulasi-biaya");
+
         return (
           <Link
             href={item.href}
             key={item.href}
             className={cn(
-              "relative whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold transition hover:bg-secondary hover:text-foreground 2xl:px-4",
-              isActive ? "text-foreground" : "text-mki-gray",
+              "relative whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 2xl:px-3 2xl:text-sm",
+              isSimulation
+                ? "bg-mki-orange/10 font-bold text-mki-orange hover:bg-mki-orange/20"
+                : isActive
+                ? "bg-secondary/80 font-bold text-foreground dark:bg-secondary/60"
+                : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
             )}
           >
             {item.label}
-            {isActive ? (
-              <span className="absolute inset-x-3 -bottom-0.5 h-[2px] rounded-full bg-mki-orange 2xl:inset-x-4" />
+            {isActive && !isSimulation ? (
+              <span className="absolute inset-x-2.5 -bottom-0.5 h-[2px] rounded-full bg-mki-orange 2xl:inset-x-3" />
             ) : null}
           </Link>
         );

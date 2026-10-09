@@ -1,8 +1,8 @@
 {
-  "latestVersion": "1.5.0",
+  "latestVersion": "1.6.0",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/hasnialfarisi09-tech/MKI-web/releases/download/latest/Estimasi.Biaya.Versi.terbaru.apk",
-  "changelog": "• Pembaruan sistem rilis v1.5.0\n• Notifikasi status bar sistem Android resmi\n• Update mulus langsung terpasang otomatis",
+  "changelog": "• Desain baru Simulasi Biaya dengan tema Luxury Emerald & Jade (bebas warna oranye)\n• Panel kartu estimasi solid flat green yang lebih ringkas dan elegan\n• Fitur pencarian cepat bahan utama dan model furniture\n• Opsi 3 bentuk (Lurus, Shape L, Shape U) pada Top Table & Backsplash\n• Optimasi performa dan tata letak header",
   "forceUpdate": false,
-  "releaseDate": "2026-10-02"
+  "releaseDate": "2026-10-09"
 }
