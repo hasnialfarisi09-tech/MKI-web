@@ -6,7 +6,7 @@ export const company = {
     "Jasa interior custom Bandung terpercaya sejak 2018. Kitchen set, bedroom, wardrobe, dan living room dengan 23 workshop aktif, 4.048+ project selesai, dan coverage 28 kota di Indonesia.",
   foundedYear: "2018",
   phone: "+62 822-4035-2844",
-  partnershipPhone: "+62 896-3681-6286",
+  partnershipPhone: "+62 852-8650-1515",
   portfolioPhone: "+62 821-7408-3968",
   email: "info@menujukeindahan.id",
   alternativeEmail: "menujukeindahanindonesia@gmail.com",
