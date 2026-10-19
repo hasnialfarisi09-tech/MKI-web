@@ -59,6 +59,35 @@ type LocalCache = {
   cachedAt: number;
 };
 
+function mergeWithFallback(
+  items: FurnitureItemConfig[],
+  fallbackItems: FurnitureItemConfig[]
+): FurnitureItemConfig[] {
+  const merged: FurnitureItemConfig[] = fallbackItems.map((fbItem) => {
+    const matched = items.find((p) => p.id === fbItem.id);
+    if (!matched) return fbItem;
+
+    const matchedOptionIds = new Set(matched.options.map((o) => o.id));
+    const missingOptions = fbItem.options.filter(
+      (o) => !matchedOptionIds.has(o.id)
+    );
+
+    return {
+      ...matched,
+      options: [...matched.options, ...missingOptions],
+    };
+  });
+
+  const fbIds = new Set(fallbackItems.map((i) => i.id));
+  items.forEach((item) => {
+    if (!fbIds.has(item.id)) {
+      merged.push(item);
+    }
+  });
+
+  return merged;
+}
+
 function readLocalCache(): LocalCache | null {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -142,7 +171,7 @@ export function usePricingData(): PricingDataState {
       // 1. Cek localStorage cache dulu (cepat, offline-friendly)
       const cached = readLocalCache();
       if (cached) {
-        setAllItems(cached.allItems);
+        setAllItems(mergeWithFallback(cached.allItems, fallback.allItems));
         setProvinces(cached.provinces);
         setIsLive(true);
         setLastUpdated(new Date(cached.cachedAt));
@@ -193,26 +222,29 @@ export function usePricingData(): PricingDataState {
             ? locations
             : fallback.provinces;
 
+        // Merge pricing dari Apps Script dengan opsi fallback agar item/opsi baru selalu tersedia
+        const resolvedPricing = mergeWithFallback(pricing, fallback.allItems);
+
         // Cek apakah data dari Google Sheets berbeda dari cache sebelumnya (ada perubahan harga/item)
         const isDataChanged =
           Boolean(cached) &&
-          (cached!.allItems.length !== pricing.length ||
-            JSON.stringify(cached!.allItems) !== JSON.stringify(pricing));
+          (cached!.allItems.length !== resolvedPricing.length ||
+            JSON.stringify(cached!.allItems) !== JSON.stringify(resolvedPricing));
 
         if (isDataChanged) {
           sendPricingUpdateNotification({
-            itemCount: pricing.length,
+            itemCount: resolvedPricing.length,
             lastUpdatedDate: new Date(),
-            customMessage: `Terdapat pembaruan harga material atau item baru dari Google Sheets (${pricing.length} item aktif).`,
+            customMessage: `Terdapat pembaruan harga material atau item baru (${resolvedPricing.length} item aktif).`,
           });
         }
 
-        setAllItems(pricing);
+        setAllItems(resolvedPricing);
         setProvinces(resolvedProvinces);
         setIsLive(true);
         setLastUpdated(new Date());
-        writeLocalCache(pricing, resolvedProvinces);
-        console.log(`[usePricingData] ✅ Berhasil load ${pricing.length} items dari Apps Script`);
+        writeLocalCache(resolvedPricing, resolvedProvinces);
+        console.log(`[usePricingData] ✅ Berhasil load ${resolvedPricing.length} items (termasuk opsi PVC Board)`);
       } catch (err) {
         if (cancelled) return;
 

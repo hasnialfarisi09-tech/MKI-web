@@ -227,3 +227,45 @@ function testAPI() {
   Logger.log("First item: " + JSON.stringify(pricing[0]));
 }
 
+/**
+ * Helper otomatis: Tambahkan PVC Board ke item Box Kulkas & Microwave di sheet "Pricing"
+ * Jalankan fungsi ini dari menu dropdown fungsi di Apps Script editor lalu klik "Run".
+ */
+function tambahkanPvcBoardBoxElektronik() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.PRICING);
+  if (!sheet) throw new Error('Sheet "Pricing" tidak ditemukan!');
+
+  const data = sheet.getDataRange().getValues();
+  let targetRowIndex = -1;
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][0]).trim() === "box_elektronik") {
+      targetRowIndex = i + 1; // 1-indexed row number
+    }
+  }
+
+  // Jika sudah ada box_pvc_min, hindari duplikasi
+  const exists = data.some(function(row) {
+    return String(row[9]).trim() === "box_pvc_min";
+  });
+  if (exists) {
+    Logger.log("PVC Board untuk box_elektronik sudah ada di sheet!");
+    return "Sudah ada";
+  }
+
+  const newRows = [
+    ["box_elektronik", "", "", "", "", "", "", "", "", "box_pvc_min", "PVC Board", "Minimalis HPL", "M2", 4200000, 4200000, ""],
+    ["box_elektronik", "", "", "", "", "", "", "", "", "box_pvc_semi", "PVC Board", "Semi Klasik HPL", "M2", 4500000, 4500000, ""],
+    ["box_elektronik", "", "", "", "", "", "", "", "", "box_pvc_klasik", "PVC Board", "Klasik HPL", "M2", 5000000, 5000000, ""]
+  ];
+
+  if (targetRowIndex > 0) {
+    sheet.insertRowsAfter(targetRowIndex, 3);
+    sheet.getRange(targetRowIndex + 1, 1, 3, 16).setValues(newRows);
+    Logger.log("Berhasil menyisipkan 3 baris PVC Board setelah baris " + targetRowIndex);
+  } else {
+    newRows.forEach(function(r) { sheet.appendRow(r); });
+    Logger.log("Berhasil menambahkan 3 baris PVC Board di akhir sheet");
+  }
+}
+
