@@ -788,7 +788,7 @@ export const KITCHEN_ITEMS: FurnitureItemConfig[] = [
     name: "Box Kulkas & Microwave / Dispenser",
     category: "kitchen",
     defaultUnit: "M2",
-    description: "Kabinet framed untuk menutupi kulkas, microwave oven, dan dispenser agar rapi seirama. Dihitung Meter Persegi (M2).",
+    description: "Kabinet framed untuk menutupi kulkas, microwave oven, dan dispenser agar rapi seirama. Dihitung Meter Persegi (M2, panjang min. 1m jika < 1m).",
     defaultSelected: false,
     defaultLength: 1.0,
     defaultHeight: 2.2,

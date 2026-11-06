@@ -1,8 +1,8 @@
 {
-  "latestVersion": "1.6.0",
+  "latestVersion": "1.6.1",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/hasnialfarisi09-tech/MKI-web/releases/download/latest/Estimasi.Biaya.Versi.terbaru.apk",
-  "changelog": "• Desain baru Simulasi Biaya dengan tema Luxury Emerald & Jade (bebas warna oranye)\n• Panel kartu estimasi solid flat green yang lebih ringkas dan elegan\n• Fitur pencarian cepat bahan utama dan model furniture\n• Opsi 3 bentuk (Lurus, Shape L, Shape U) pada Top Table & Backsplash\n• Optimasi performa dan tata letak header",
+  "changelog": "• Perhitungan khusus Box Kulkas & Microwave / Dispenser (panjang < 1m dibulatkan ke 1m)\n• Penambahan pilihan material PVC Board pada item Box Elektronik\n• Peningkatan akurasi dan stabilitas kalkulator estimasi biaya",
   "forceUpdate": false,
-  "releaseDate": "2026-10-09"
+  "releaseDate": "2026-11-06"
 }

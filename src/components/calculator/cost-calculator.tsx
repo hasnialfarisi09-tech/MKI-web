@@ -1306,6 +1306,11 @@ export function CostCalculator() {
           const area = Math.round(len * ht * 0.8 * 100) / 100;
           measurement = area;
           subtotal = len > 0 && ht > 0 ? Math.round(len * ht * 0.8 * unitPrice) : 0;
+        } else if (item.id === "box_elektronik") {
+          const effLen = len > 0 ? (len < 1 ? 1 : len) : 0;
+          const area = Math.round(effLen * ht * 100) / 100;
+          measurement = area;
+          subtotal = len > 0 && ht > 0 ? Math.round(area * unitPrice) : 0;
         } else if (selectedOption.unit === "M1") {
           measurement = len;
           subtotal = len * unitPrice;
@@ -1338,7 +1343,7 @@ export function CostCalculator() {
           }
         } else if (item.id === "meja_island") {
           totalM1 += len;
-        } else if (item.id === "lemari_bawah_tangga") {
+        } else if (item.id === "lemari_bawah_tangga" || item.id === "box_elektronik") {
           totalM2 += measurement;
         } else if (selectedOption.unit === "M1") {
           totalM1 += len;
@@ -2578,6 +2583,8 @@ export function CostCalculator() {
                             `(${item.measurement} m : 0,6) x ${formatRupiah(item.unitPrice)}`
                           ) : item.item.id === "lemari_bawah_tangga" ? (
                             `(${item.measurement} m² [x 0,8]) x ${formatRupiah(item.unitPrice)}`
+                          ) : item.item.id === "box_elektronik" ? (
+                            `(${item.measurement} m² [P min. 1m]) x ${formatRupiah(item.unitPrice)}`
                           ) : (
                             <>
                               {item.unit === "M1" && `${item.measurement} m1`}
@@ -3618,6 +3625,15 @@ function getInstanceCalculation(
     subtotal = len > 0 && ht > 0 ? Math.round(len * ht * 0.8 * unitPrice) : 0;
     dimensionSummary = len > 0 && ht > 0
       ? `P: ${len}m, T: ${ht}m (${measurement} m²)`
+      : "Belum diisi (0 m²)";
+  } else if (item.id === "box_elektronik") {
+    const effLen = len > 0 ? (len < 1 ? 1 : len) : 0;
+    measurement = Math.round(effLen * ht * 100) / 100;
+    subtotal = len > 0 && ht > 0 ? Math.round(measurement * unitPrice) : 0;
+    dimensionSummary = len > 0 && ht > 0
+      ? len < 1
+        ? `P: ${len}m (dihitung 1m), T: ${ht}m (${measurement} m²)`
+        : `P: ${len}m, T: ${ht}m (${measurement} m²)`
       : "Belum diisi (0 m²)";
   } else if (selectedOption?.unit === "M1") {
     measurement = len;
@@ -4730,6 +4746,8 @@ function UnitEditor({
                 <span>
                   {item.id === "lemari_bawah_tangga"
                     ? "Dimensi Luas Efektif (P x T x 0,8):"
+                    : item.id === "box_elektronik"
+                    ? "Dimensi Luas Efektif (P min. 1m x T):"
                     : item.id === "dipan_ranjang"
                     ? "Dimensi Luas (P x L):"
                     : "Dimensi Luas (P x T):"}
@@ -4741,6 +4759,8 @@ function UnitEditor({
                   instance.height > 0
                     ? item.id === "lemari_bawah_tangga"
                       ? `${Math.round(instance.length * instance.height * 0.8 * 100) / 100} m² (${instance.length}m x ${instance.height}m x 0,8)`
+                      : item.id === "box_elektronik"
+                      ? `${Math.round((instance.length < 1 ? 1 : instance.length) * instance.height * 100) / 100} m² (${instance.length < 1 ? `1m [min. dari ${instance.length}m]` : `${instance.length}m`} x ${instance.height}m)`
                       : `${Math.round(instance.length * instance.height * 100) / 100} m² (${instance.length}m x ${instance.height}m)`
                     : "Belum diisi (0 m²)"}
                 </span>
@@ -4828,6 +4848,8 @@ function UnitEditor({
                 <span className="font-semibold text-primary">
                   {item.id === "lemari_bawah_tangga"
                     ? "Panjang (P) × Tinggi (T) × 0,8 × Tarif"
+                    : item.id === "box_elektronik"
+                    ? "P (min. 1m jika < 1m) × Tinggi (T) × Tarif"
                     : item.id === "dipan_ranjang"
                     ? "Panjang (P) × Lebar (L) × Tarif"
                     : "Panjang (P) × Tinggi (T) × Tarif"}
@@ -5009,6 +5031,8 @@ function ItemCard({
                   ? "Rumus Khusus: (P : 0,6) x Tarif"
                   : item.id === "lemari_bawah_tangga"
                   ? "Rumus Khusus: P x T x 0,8 x Tarif"
+                  : item.id === "box_elektronik"
+                  ? "Rumus Khusus: P (min. 1m) x T x Tarif"
                   : primaryUnit === "M1"
                   ? "Meter Lari (M1)"
                   : primaryUnit === "M2"
