@@ -1,8 +1,8 @@
 {
-  "latestVersion": "1.6.2",
+  "latestVersion": "1.6.3",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/hasnialfarisi09-tech/MKI-web/releases/download/latest/Estimasi.Biaya.Versi.terbaru.apk",
-  "changelog": "• Sinkronisasi Google Sheets disempurnakan (penghapusan dan penambahan item dari Google Sheets langsung tersinkronisasi 100%)\n• Tombol refresh instan membersihkan cache harga\n• Dukungan remote push notification OneSignal",
+  "changelog": "• Kategori Simulasi Biaya kini otomatis dinamis dari Google Sheets (penambahan kategori baru di spreadsheet langsung muncul di aplikasi tanpa perlu update aplikasi lagi)\n• Peningkatan akurasi perhitungan & dukungan aksesoris kustom per kategori",
   "forceUpdate": false,
   "releaseDate": "2026-11-16"
 }
