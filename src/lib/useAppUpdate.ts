@@ -200,7 +200,9 @@ export function useAppUpdate(): AppUpdateState {
         let isDismissed = false;
         if (!isMandatory && !isManual) {
           try {
-            isDismissed = sessionStorage.getItem(`${DISMISSED_KEY_PREFIX}${remote.latestVersion}`) === "true";
+            isDismissed =
+              localStorage.getItem(`${DISMISSED_KEY_PREFIX}${remote.latestVersion}`) === "true" ||
+              sessionStorage.getItem(`${DISMISSED_KEY_PREFIX}${remote.latestVersion}`) === "true";
           } catch {
             isDismissed = false;
           }
@@ -249,6 +251,7 @@ export function useAppUpdate(): AppUpdateState {
   const dismissUpdate = useCallback(() => {
     if (!isForceUpdate && updateInfo?.latestVersion) {
       try {
+        localStorage.setItem(`${DISMISSED_KEY_PREFIX}${updateInfo.latestVersion}`, "true");
         sessionStorage.setItem(`${DISMISSED_KEY_PREFIX}${updateInfo.latestVersion}`, "true");
       } catch {
         // Ignore storage errors
