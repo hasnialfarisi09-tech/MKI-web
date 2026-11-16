@@ -18,6 +18,7 @@ import { useAppUpdate } from "@/lib/useAppUpdate";
 import { UpdateDialog, CheckUpdateButton } from "@/components/common/UpdateDialog";
 import { AppSettingsDialog } from "@/components/common/AppSettingsDialog";
 import { initNotificationChannels, requestNotificationPermission } from "@/lib/appNotifications";
+import { initOneSignal } from "@/lib/oneSignal";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -40,6 +41,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
     if (native) {
       initNotificationChannels();
       requestNotificationPermission();
+      initOneSignal();
     }
     if (native && (pathname === "/" || pathname === "")) {
       router.replace("/simulasi-biaya/");

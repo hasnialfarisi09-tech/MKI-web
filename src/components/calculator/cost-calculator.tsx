@@ -798,12 +798,14 @@ export function CostCalculator() {
   const [itemsState, setItemsState] = useState<CalculatorState>(() => buildInitialState(ALL_ITEMS));
 
   // Saat ALL_ITEMS berubah (setelah data live dari API dimuat),
-  // tambahkan item baru yang belum ada di state tanpa mereset state yang sudah ada
+  // sinkronisasikan state: tambahkan item baru dan bersihkan item/opsi yang sudah dihapus di Google Sheets
   useEffect(() => {
     if (!ALL_ITEMS || ALL_ITEMS.length === 0) return;
     setItemsState((prev) => {
       const next = { ...prev };
       let changed = false;
+
+      // 1. Tambah item baru & periksa keabsahan opsi bahan
       for (const item of ALL_ITEMS) {
         if (!next[item.id]) {
           next[item.id] = [{
@@ -819,8 +821,31 @@ export function CostCalculator() {
             length3: 0,
           }];
           changed = true;
+        } else {
+          // Jika opsi bahan yang dipilih pengguna sudah dihapus di Google Sheets, alihkan ke opsi pertama yang masih aktif
+          const validOptionIds = new Set(item.options.map((o) => o.id));
+          const updatedInstances = next[item.id].map((inst) => {
+            if (!validOptionIds.has(inst.optionId) && item.options[0]) {
+              changed = true;
+              return { ...inst, optionId: item.options[0].id };
+            }
+            return inst;
+          });
+          if (changed) {
+            next[item.id] = updatedInstances;
+          }
         }
       }
+
+      // 2. Bersihkan item yang sudah dihapus dari Google Sheets (tidak ada di ALL_ITEMS)
+      const currentItemIds = new Set(ALL_ITEMS.map((i) => i.id));
+      for (const key of Object.keys(next)) {
+        if (!currentItemIds.has(key)) {
+          delete next[key];
+          changed = true;
+        }
+      }
+
       return changed ? next : prev;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

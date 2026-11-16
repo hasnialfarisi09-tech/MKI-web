@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 import { usePathname } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
+import { clearPricingCache } from "@/lib/usePricingData";
 
 interface RefreshButtonProps {
   className?: string;
@@ -19,6 +20,7 @@ export function RefreshButton({ className, showLabel = false }: RefreshButtonPro
   const handleRefresh = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
+    clearPricingCache();
 
     const isNative = typeof window !== "undefined" && Capacitor.isNativePlatform();
 

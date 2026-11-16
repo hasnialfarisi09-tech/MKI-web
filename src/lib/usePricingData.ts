@@ -59,33 +59,18 @@ type LocalCache = {
   cachedAt: number;
 };
 
-function mergeWithFallback(
-  items: FurnitureItemConfig[],
-  fallbackItems: FurnitureItemConfig[]
-): FurnitureItemConfig[] {
-  const merged: FurnitureItemConfig[] = fallbackItems.map((fbItem) => {
-    const matched = items.find((p) => p.id === fbItem.id);
-    if (!matched) return fbItem;
-
-    const matchedOptionIds = new Set(matched.options.map((o) => o.id));
-    const missingOptions = fbItem.options.filter(
-      (o) => !matchedOptionIds.has(o.id)
-    );
-
-    return {
-      ...matched,
-      options: [...matched.options, ...missingOptions],
-    };
-  });
-
-  const fbIds = new Set(fallbackItems.map((i) => i.id));
-  items.forEach((item) => {
-    if (!fbIds.has(item.id)) {
-      merged.push(item);
+/**
+ * Hapus cache harga di localStorage agar perubahan di Google Sheets
+ * langsung diambil ulang seketika.
+ */
+export function clearPricingCache(): void {
+  try {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(LS_KEY);
     }
-  });
-
-  return merged;
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 function readLocalCache(): LocalCache | null {
@@ -158,6 +143,7 @@ export function usePricingData(): PricingDataState {
   const [refreshTick, setRefreshTick] = useState(0);
 
   const refresh = useCallback(() => {
+    clearPricingCache();
     setRefreshTick((t) => t + 1);
   }, []);
 
@@ -171,7 +157,7 @@ export function usePricingData(): PricingDataState {
       // 1. Cek localStorage cache dulu (cepat, offline-friendly)
       const cached = readLocalCache();
       if (cached) {
-        setAllItems(mergeWithFallback(cached.allItems, fallback.allItems));
+        setAllItems(cached.allItems);
         setProvinces(cached.provinces);
         setIsLive(true);
         setLastUpdated(new Date(cached.cachedAt));
@@ -222,8 +208,9 @@ export function usePricingData(): PricingDataState {
             ? locations
             : fallback.provinces;
 
-        // Merge pricing dari Apps Script dengan opsi fallback agar item/opsi baru selalu tersedia
-        const resolvedPricing = mergeWithFallback(pricing, fallback.allItems);
+        // Data dari Google Sheets murni menjadi acuan utama (Source of Truth)
+        // Data/item/opsi yang dihapus di Google Sheets benar-benar terhapus
+        const resolvedPricing = pricing;
 
         // Cek apakah data dari Google Sheets berbeda dari cache sebelumnya (ada perubahan harga/item)
         const isDataChanged =
@@ -235,7 +222,7 @@ export function usePricingData(): PricingDataState {
           sendPricingUpdateNotification({
             itemCount: resolvedPricing.length,
             lastUpdatedDate: new Date(),
-            customMessage: `Terdapat pembaruan harga material atau item baru (${resolvedPricing.length} item aktif).`,
+            customMessage: `Terdapat pembaruan data harga atau katalog (${resolvedPricing.length} item aktif).`,
           });
         }
 
@@ -244,7 +231,7 @@ export function usePricingData(): PricingDataState {
         setIsLive(true);
         setLastUpdated(new Date());
         writeLocalCache(resolvedPricing, resolvedProvinces);
-        console.log(`[usePricingData] ✅ Berhasil load ${resolvedPricing.length} items (termasuk opsi PVC Board)`);
+        console.log(`[usePricingData] ✅ Berhasil load ${resolvedPricing.length} items langsung dari Google Sheets`);
       } catch (err) {
         if (cancelled) return;
 
