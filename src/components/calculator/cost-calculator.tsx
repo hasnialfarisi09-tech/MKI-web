@@ -2,11 +2,15 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
+  Armchair,
   ArrowDown,
+  Bath,
   Bed,
+  Briefcase,
   Building2,
   Check,
   ChevronDown,
+  Coffee,
   Copy,
   Download,
   Eye,
@@ -18,8 +22,10 @@ import {
   Info,
   Layers,
   Loader2,
+  LucideIcon,
   MapPin,
   Minus,
+  Package,
   Palette,
   Pencil,
   Plus,
@@ -434,7 +440,7 @@ export type ItemState = ItemInstance;
 
 export type CalculatorState = Record<string, ItemInstance[]>;
 
-type CategoryKey = "kitchen" | "wardrobe" | "living" | "bedroom";
+type CategoryKey = string;
 
 type CustomAccessory = {
   id: string;
@@ -525,8 +531,58 @@ function parseQty(val: number | string | ""): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+export const KNOWN_CATEGORY_LABELS: Record<string, string> = {
+  kitchen: "Kitchen Set Custom",
+  wardrobe: "Lemari & Partisi",
+  living: "Backdrop TV & Wallpanel",
+  bedroom: "Kamar Tidur (Dipan/Rias)",
+  office: "Ruang Kerja (Office)",
+  ruang_kerja: "Ruang Kerja",
+  workspace: "Ruang Kerja",
+  bathroom: "Kamar Mandi",
+  kamar_mandi: "Kamar Mandi",
+  toilet: "Kamar Mandi",
+  dining: "Ruang Makan",
+  ruang_makan: "Ruang Makan",
+  cafe: "Cafe & Komersial",
+  commercial: "Komersial",
+  foyer: "Foyer & Masuk",
+  laundry: "Laundry Room",
+  mushola: "Mushola",
+  gudang: "Gudang & Storage",
+};
+
+export function formatCategoryLabel(cat: string): string {
+  if (!cat) return "";
+  const normalized = cat.trim().toLowerCase();
+  if (KNOWN_CATEGORY_LABELS[normalized]) {
+    return KNOWN_CATEGORY_LABELS[normalized];
+  }
+  return cat
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function getCategoryIcon(cat: string): LucideIcon {
+  const c = cat.toLowerCase().trim();
+  if (c === "kitchen") return UtensilsCrossed;
+  if (c === "wardrobe") return Layers;
+  if (c === "living") return Tv;
+  if (c === "bedroom") return Bed;
+  if (c.includes("office") || c.includes("kerja") || c.includes("workspace")) return Briefcase;
+  if (c.includes("bath") || c.includes("toilet") || c.includes("mandi")) return Bath;
+  if (c.includes("cafe") || c.includes("coffee") || c.includes("resto") || c.includes("makan") || c.includes("dining")) return Coffee;
+  if (c.includes("commercial") || c.includes("toko") || c.includes("hotel")) return Building2;
+  if (c.includes("sofa") || c.includes("lounge") || c.includes("santai")) return Armchair;
+  if (c.includes("box") || c.includes("gudang") || c.includes("storage")) return Package;
+  return Sparkles;
+}
+
 const CATEGORY_CUSTOM_CONFIG: Record<
-  CategoryKey,
+  string,
   { title: string; desc: string; placeholder: string; defaultItemName: string }
 > = {
   kitchen: {
@@ -555,31 +611,18 @@ const CATEGORY_CUSTOM_CONFIG: Record<
   },
 };
 
-// ALL_ITEMS sekarang diambil dari hook usePricingData (live dari Google Sheets)
-// Fallback ke data hardcode jika offline
-
-const CATEGORY_TABS = [
-  {
-    id: "kitchen" as const,
-    label: "Kitchen Set Custom",
-    icon: UtensilsCrossed,
-  },
-  {
-    id: "wardrobe" as const,
-    label: "Lemari & Partisi",
-    icon: Layers,
-  },
-  {
-    id: "living" as const,
-    label: "Backdrop TV & Wallpanel",
-    icon: Tv,
-  },
-  {
-    id: "bedroom" as const,
-    label: "Kamar Tidur (Dipan/Rias)",
-    icon: Bed,
-  },
-];
+function getCategoryCustomConfig(cat: string) {
+  if (CATEGORY_CUSTOM_CONFIG[cat]) {
+    return CATEGORY_CUSTOM_CONFIG[cat];
+  }
+  const label = formatCategoryLabel(cat);
+  return {
+    title: `Aksesoris & Fitting Tambahan ${label}`,
+    desc: `Tuliskan nama aksesoris, fitting khusus, harga satuan, dan jumlah (qty) sesuai kebutuhan ${label.toLowerCase()} Anda.`,
+    placeholder: `Contoh: Stop Kontak / Lampu LED / Fitting ${label}`,
+    defaultItemName: `Aksesoris ${label}`,
+  };
+}
 
 function buildInitialState(items: FurnitureItemConfig[]): CalculatorState {
   const state: CalculatorState = {};
@@ -790,9 +833,7 @@ export function CostCalculator() {
   const [selectedCityId, setSelectedCityId] = useState<string>("kota-bandung");
 
   // State: Active Category Tab
-  const [activeCategory, setActiveCategory] = useState<
-    "kitchen" | "wardrobe" | "living" | "bedroom"
-  >("kitchen");
+  const [activeCategory, setActiveCategory] = useState<string>("kitchen");
 
   // State: Item configurations — diinisialisasi dari ALL_ITEMS (live dari hook)
   const [itemsState, setItemsState] = useState<CalculatorState>(() => buildInitialState(ALL_ITEMS));
@@ -1394,8 +1435,9 @@ export function CostCalculator() {
     }
 
     // 2. Process custom accessories across all categories
-    for (const cat of Object.keys(customAccessories) as CategoryKey[]) {
-      for (const acc of customAccessories[cat]) {
+    for (const cat of Object.keys(customAccessories)) {
+      const config = getCategoryCustomConfig(cat);
+      for (const acc of customAccessories[cat] || []) {
         const p = typeof acc.price === "number" ? acc.price : 0;
         const q = parseQty(acc.qty);
         if (acc.name.trim() !== "" && p > 0 && q > 0) {
@@ -1405,13 +1447,13 @@ export function CostCalculator() {
           activeBreakdown.push({
             item: {
               id: acc.id,
-              name: `${acc.name.trim()} (${CATEGORY_CUSTOM_CONFIG[cat].defaultItemName})`,
+              name: `${acc.name.trim()} (${config.defaultItemName})`,
               category: "accessories",
               defaultUnit: "UNIT",
-              description: `Aksesoris Kustom - ${CATEGORY_CUSTOM_CONFIG[cat].title}`,
+              description: `Aksesoris Kustom - ${config.title}`,
               options: [],
             },
-            displayName: `${acc.name.trim()} (${CATEGORY_CUSTOM_CONFIG[cat].defaultItemName})`,
+            displayName: `${acc.name.trim()} (${config.defaultItemName})`,
             layout: "lurus",
             optionName: "Kustom",
             modelName: `${q} @ ${formatRupiah(p)}`,
@@ -1433,6 +1475,57 @@ export function CostCalculator() {
     };
   }, [itemsState, region, customAccessories]);
 
+  // Category navigation tabs dinamis: otomatis terisi dari Google Sheets (ALL_ITEMS)
+  const categoryTabs = useMemo(() => {
+    const baseOrder = ["kitchen", "wardrobe", "living", "bedroom"];
+    const seen = new Set<string>();
+    const list: { id: string; label: string; icon: LucideIcon }[] = [];
+
+    // Kumpulkan semua kategori unik dari ALL_ITEMS kecuali internal (electronics, accessories)
+    const availableCategories = new Set<string>();
+    for (const item of ALL_ITEMS || []) {
+      if (item.category && item.category !== "accessories" && item.category !== "electronics") {
+        availableCategories.add(item.category);
+      }
+    }
+
+    // 1. Kategori dasar urutan teratas (tampilkan jika ada item atau jika data awal)
+    for (const catId of baseOrder) {
+      if (availableCategories.has(catId) || availableCategories.size === 0) {
+        seen.add(catId);
+        list.push({
+          id: catId,
+          label: formatCategoryLabel(catId),
+          icon: getCategoryIcon(catId),
+        });
+      }
+    }
+
+    // 2. Kategori tambahan dinamis dari Google Sheets
+    for (const catId of availableCategories) {
+      if (!seen.has(catId)) {
+        seen.add(catId);
+        list.push({
+          id: catId,
+          label: formatCategoryLabel(catId),
+          icon: getCategoryIcon(catId),
+        });
+      }
+    }
+
+    return list;
+  }, [ALL_ITEMS]);
+
+  // Pastikan activeCategory valid jika daftar kategori berubah
+  useEffect(() => {
+    if (categoryTabs.length > 0) {
+      const exists = categoryTabs.some((tab) => tab.id === activeCategory);
+      if (!exists) {
+        setActiveCategory(categoryTabs[0].id);
+      }
+    }
+  }, [categoryTabs, activeCategory]);
+
   const activeCategoryItems = useMemo(() => {
     if (!ALL_ITEMS) return [];
     return ALL_ITEMS.filter((item) => item.category === activeCategory);
@@ -1440,12 +1533,7 @@ export function CostCalculator() {
 
   // Compute selected count per category (hanya menghitung unit yang aktif dengan subtotal > 0)
   const categoryCounts = useMemo(() => {
-    const counts: Record<CategoryKey, number> = {
-      kitchen: 0,
-      wardrobe: 0,
-      living: 0,
-      bedroom: 0,
-    };
+    const counts: Record<string, number> = {};
 
     const isInstanceActive = (item: FurnitureItemConfig, inst: ItemInstance) => {
       if (!inst.enabled) return false;
@@ -1453,43 +1541,55 @@ export function CostCalculator() {
       return c.subtotal > 0;
     };
 
-    if (!ALL_ITEMS) return counts;
-    for (const item of ALL_ITEMS) {
-      const active = (itemsState[item.id] || []).filter((i) => isInstanceActive(item, i)).length;
-      if (item.category === "kitchen" || item.category === "electronics") counts.kitchen += active;
-      else if (item.category === "wardrobe") counts.wardrobe += active;
-      else if (item.category === "living") counts.living += active;
-      else if (item.category === "bedroom") counts.bedroom += active;
+    if (ALL_ITEMS) {
+      for (const item of ALL_ITEMS) {
+        const active = (itemsState[item.id] || []).filter((i) => isInstanceActive(item, i)).length;
+        if (active > 0) {
+          const targetCat = item.category === "electronics" ? "kitchen" : item.category;
+          counts[targetCat] = (counts[targetCat] || 0) + active;
+        }
+      }
     }
 
     // Include valid custom accessories per category
-    for (const cat of Object.keys(customAccessories) as CategoryKey[]) {
-      const validCustomCount = customAccessories[cat].filter(
+    for (const cat of Object.keys(customAccessories)) {
+      const accList = customAccessories[cat] || [];
+      const validCustomCount = accList.filter(
         (a) =>
           a.name.trim() !== "" &&
           typeof a.price === "number" &&
           a.price > 0 &&
           parseQty(a.qty) > 0
       ).length;
-      counts[cat] += validCustomCount;
+      if (validCustomCount > 0) {
+        counts[cat] = (counts[cat] || 0) + validCustomCount;
+      }
     }
 
     return counts;
-  }, [itemsState, region, customAccessories]);
+  }, [itemsState, region, customAccessories, ALL_ITEMS]);
 
-  const addCustomAccessory = (cat: CategoryKey) => {
-    setCustomAccessories((prev) => ({
-      ...prev,
-      [cat]: [
-        ...prev[cat],
-        { id: `custom_acc_${cat}_${Date.now()}`, name: "", price: "", qty: "" },
-      ],
-    }));
+  const addCustomAccessory = (cat: string) => {
+    setCustomAccessories((prev) => {
+      const currentList = prev[cat] || [
+        { id: `custom_acc_${cat}_1`, name: "", price: "", qty: "" },
+      ];
+      return {
+        ...prev,
+        [cat]: [
+          ...currentList,
+          { id: `custom_acc_${cat}_${Date.now()}`, name: "", price: "", qty: "" },
+        ],
+      };
+    });
   };
 
-  const removeCustomAccessory = (cat: CategoryKey, id: string) => {
+  const removeCustomAccessory = (cat: string, id: string) => {
     setCustomAccessories((prev) => {
-      const filtered = prev[cat].filter((acc) => acc.id !== id);
+      const currentList = prev[cat] || [
+        { id: `custom_acc_${cat}_1`, name: "", price: "", qty: "" },
+      ];
+      const filtered = currentList.filter((acc) => acc.id !== id);
       return {
         ...prev,
         [cat]:
@@ -1501,15 +1601,20 @@ export function CostCalculator() {
   };
 
   const updateCustomAccessory = (
-    cat: CategoryKey,
+    cat: string,
     id: string,
     field: "name" | "price" | "qty",
     val: string | number
   ) => {
-    setCustomAccessories((prev) => ({
-      ...prev,
-      [cat]: prev[cat].map((acc) => (acc.id === id ? { ...acc, [field]: val } : acc)),
-    }));
+    setCustomAccessories((prev) => {
+      const currentList = prev[cat] || [
+        { id: `custom_acc_${cat}_1`, name: "", price: "", qty: "" },
+      ];
+      return {
+        ...prev,
+        [cat]: currentList.map((acc) => (acc.id === id ? { ...acc, [field]: val } : acc)),
+      };
+    });
   };
 
   // Perbandingan Cerdas Alternatif Bahan (Smart Budget Comparison)
@@ -1548,8 +1653,8 @@ export function CostCalculator() {
 
     // Hitung custom accessories aktif (tetap konstan di semua tier)
     let customAccTotal = 0;
-    for (const cat of Object.keys(customAccessories) as CategoryKey[]) {
-      for (const acc of customAccessories[cat]) {
+    for (const cat of Object.keys(customAccessories)) {
+      for (const acc of customAccessories[cat] || []) {
         const p = typeof acc.price === "number" ? acc.price : 0;
         const q = parseQty(acc.qty);
         if (acc.name.trim() !== "" && p > 0 && q > 0) {
@@ -1937,10 +2042,10 @@ export function CostCalculator() {
 
         {/* Category Navigation Tabs */}
         <div className="mt-8 pt-6 border-t border-emerald-700/80 flex flex-wrap gap-2 sm:gap-3">
-          {CATEGORY_TABS.map((tab) => {
+          {categoryTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeCategory === tab.id;
-            const count = categoryCounts[tab.id];
+            const count = categoryCounts[tab.id] || 0;
             const hasSelected = count > 0;
 
             return (
@@ -2053,28 +2158,40 @@ export function CostCalculator() {
 
           {/* Render Active Category Items */}
           <div className="space-y-4">
-            {activeCategoryItems.map((item) => {
-              const instances = itemsState[item.id] || [];
-              return (
-                <ItemCard
-                  key={item.id}
-                  item={item}
-                  region={region}
-                  instances={instances}
-                  onToggle={() => toggleItemAll(item.id)}
-                  onSelectOption={(instanceId, optId) => setOption(item.id, instanceId, optId)}
-                  onUpdateDimension={(instanceId, field, delta, min) =>
-                    updateDimension(item.id, instanceId, field, delta, min)
-                  }
-                  onSetDirectDimension={(instanceId, field, val) =>
-                    setDirectDimension(item.id, instanceId, field, val)
-                  }
-                  onSetLayout={(instanceId, layout) => setLayout(item.id, instanceId, layout)}
-                  onAddInstance={() => addComponentInstance(item.id)}
-                  onRemoveInstance={(instanceId) => removeComponentInstance(item.id, instanceId)}
-                />
-              );
-            })}
+            {activeCategoryItems.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-8 text-center bg-card/40">
+                <Sparkles className="size-8 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-sm font-semibold text-foreground">
+                  Belum ada item untuk kategori {formatCategoryLabel(activeCategory)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                  Item dengan kategori &quot;{activeCategory}&quot; akan otomatis tampil di sini saat ditambahkan di Google Sheets tab Pricing.
+                </p>
+              </div>
+            ) : (
+              activeCategoryItems.map((item) => {
+                const instances = itemsState[item.id] || [];
+                return (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    region={region}
+                    instances={instances}
+                    onToggle={() => toggleItemAll(item.id)}
+                    onSelectOption={(instanceId, optId) => setOption(item.id, instanceId, optId)}
+                    onUpdateDimension={(instanceId, field, delta, min) =>
+                      updateDimension(item.id, instanceId, field, delta, min)
+                    }
+                    onSetDirectDimension={(instanceId, field, val) =>
+                      setDirectDimension(item.id, instanceId, field, val)
+                    }
+                    onSetLayout={(instanceId, layout) => setLayout(item.id, instanceId, layout)}
+                    onAddInstance={() => addComponentInstance(item.id)}
+                    onRemoveInstance={(instanceId) => removeComponentInstance(item.id, instanceId)}
+                  />
+                );
+              })
+            )}
           </div>
 
           {/* Kitchen Electronics & Appliances Accordion (Displayed in Kitchen tab) */}
@@ -2149,48 +2266,56 @@ export function CostCalculator() {
           )}
 
           {/* Custom Accessories Accordion (Available in ALL Categories) */}
-          <div className="mt-4 rounded-2xl border border-border bg-card relative z-10 overflow-hidden shadow-xs">
-            <button
-              type="button"
-              onClick={() =>
-                setShowAccessories((prev) => ({
-                  ...prev,
-                  [activeCategory]: !prev[activeCategory],
-                }))
-              }
-              className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-muted/40 transition-colors cursor-pointer"
-            >
-              <div>
-                <h4 className="text-base font-semibold text-foreground flex items-center gap-2">
-                  <span>{CATEGORY_CUSTOM_CONFIG[activeCategory].title}</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    (Input Kustom)
-                  </span>
-                </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {CATEGORY_CUSTOM_CONFIG[activeCategory].desc}
-                </p>
-              </div>
-              <ChevronDown
-                className={cn(
-                  "size-5 text-muted-foreground transition-transform duration-200 shrink-0",
-                  showAccessories[activeCategory] ? "rotate-180 text-primary" : ""
-                )}
-              />
-            </button>
+          {(() => {
+            const activeAccConfig = getCategoryCustomConfig(activeCategory);
+            const activeAccessories = customAccessories[activeCategory] || [
+              { id: `custom_acc_${activeCategory}_1`, name: "", price: "", qty: "" },
+            ];
+            const isAccOpen = showAccessories[activeCategory] ?? true;
 
-            {showAccessories[activeCategory] && (
-              <div className="p-4 sm:p-6 border-t border-border space-y-4 bg-background">
-                <div className="space-y-3">
-                  {customAccessories[activeCategory].map((acc, index) => {
-                    const p = typeof acc.price === "number" ? acc.price : 0;
-                    const q = parseQty(acc.qty);
-                    const sub = Math.round(p * q);
-                    const totalAccessories = customAccessories[activeCategory].length;
-                    const isLatest = index === totalAccessories - 1;
-                    const isEditing =
-                      totalAccessories <= 1 ||
-                      (accEditingMap[acc.id] !== undefined ? accEditingMap[acc.id] : isLatest);
+            return (
+              <div className="mt-4 rounded-2xl border border-border bg-card relative z-10 overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowAccessories((prev) => ({
+                      ...prev,
+                      [activeCategory]: !(prev[activeCategory] ?? true),
+                    }))
+                  }
+                  className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-muted/40 transition-colors cursor-pointer"
+                >
+                  <div>
+                    <h4 className="text-base font-semibold text-foreground flex items-center gap-2">
+                      <span>{activeAccConfig.title}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        (Input Kustom)
+                      </span>
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {activeAccConfig.desc}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "size-5 text-muted-foreground transition-transform duration-200 shrink-0",
+                      isAccOpen ? "rotate-180 text-primary" : ""
+                    )}
+                  />
+                </button>
+
+                {isAccOpen && (
+                  <div className="p-4 sm:p-6 border-t border-border space-y-4 bg-background">
+                    <div className="space-y-3">
+                      {activeAccessories.map((acc, index) => {
+                        const p = typeof acc.price === "number" ? acc.price : 0;
+                        const q = parseQty(acc.qty);
+                        const sub = Math.round(p * q);
+                        const totalAccessories = activeAccessories.length;
+                        const isLatest = index === totalAccessories - 1;
+                        const isEditing =
+                          totalAccessories <= 1 ||
+                          (accEditingMap[acc.id] !== undefined ? accEditingMap[acc.id] : isLatest);
 
                     return isEditing ? (
                       <div
@@ -2248,7 +2373,7 @@ export function CostCalculator() {
                             </label>
                             <input
                               type="text"
-                              placeholder={CATEGORY_CUSTOM_CONFIG[activeCategory].placeholder}
+                              placeholder={activeAccConfig.placeholder}
                               value={acc.name}
                               onChange={(e) =>
                                 updateCustomAccessory(activeCategory, acc.id, "name", e.target.value)
@@ -2460,7 +2585,7 @@ export function CostCalculator() {
                 </div>
 
                 {(() => {
-                  const isAddAccessoryDisabled = customAccessories[activeCategory].some(
+                  const isAddAccessoryDisabled = activeAccessories.some(
                     (acc) =>
                       acc.name.trim() === "" ||
                       typeof acc.price !== "number" ||
@@ -2502,6 +2627,8 @@ export function CostCalculator() {
               </div>
             )}
           </div>
+        );
+      })()}
 
           {/* Educational Notes / Panduan Ukur */}
           <div className="rounded-2xl bg-card border border-border p-5 sm:p-6 text-xs sm:text-sm text-muted-foreground space-y-3">

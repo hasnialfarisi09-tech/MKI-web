@@ -24,7 +24,7 @@ export type MaterialOption = {
 export type FurnitureItemConfig = {
   id: string;
   name: string;
-  category: "kitchen" | "wardrobe" | "living" | "bedroom" | "accessories" | "electronics";
+  category: "kitchen" | "wardrobe" | "living" | "bedroom" | "accessories" | "electronics" | (string & {});
   defaultUnit: UnitType;
   description: string;
   options: MaterialOption[];
