@@ -1,8 +1,8 @@
 {
-  "latestVersion": "1.6.1",
+  "latestVersion": "1.6.2",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/hasnialfarisi09-tech/MKI-web/releases/download/latest/Estimasi.Biaya.Versi.terbaru.apk",
-  "changelog": "• Perhitungan khusus Box Kulkas & Microwave / Dispenser (panjang < 1m dibulatkan ke 1m)\n• Penambahan pilihan material PVC Board pada item Box Elektronik\n• Peningkatan akurasi dan stabilitas kalkulator estimasi biaya",
+  "changelog": "• Sinkronisasi Google Sheets disempurnakan (penghapusan dan penambahan item dari Google Sheets langsung tersinkronisasi 100%)\n• Tombol refresh instan membersihkan cache harga\n• Dukungan remote push notification OneSignal",
   "forceUpdate": false,
-  "releaseDate": "2026-11-06"
+  "releaseDate": "2026-11-16"
 }

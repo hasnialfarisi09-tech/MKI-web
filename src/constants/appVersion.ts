@@ -3,9 +3,9 @@
  * Setiap kali Anda ingin merilis update tampilan/kode baru,
  * naikkan angka versi ini (misal dari "1.0.0" -> "1.1.0").
  */
-export const CURRENT_APP_VERSION = "1.6.1";
-export const CURRENT_BUILD_NUMBER = 8;
-export const CURRENT_RELEASE_DATE = "2026-11-06";
+export const CURRENT_APP_VERSION = "1.6.2";
+export const CURRENT_BUILD_NUMBER = 9;
+export const CURRENT_RELEASE_DATE = "2026-11-16";
 
 export interface AppVersionInfo {
   latestVersion: string;
